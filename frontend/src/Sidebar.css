@@ -1,0 +1,293 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 250px;
+  background-color: #f5f5f5;
+  padding: 20px;
+  box-sizing: border-box;
+    overflow-y: auto; /* enable vertical scrolling */
+  scrollbar-gutter: stable;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 10px;
+}
+
+/* .footer-buttons {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid #ddd;
+} */
+
+.section-title {
+  font-size: 16px;
+  margin: 15px 0 10px;
+  color: #333;
+}
+
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+}
+
+.btn:hover {
+  background-color: #f0f0f0;
+}
+
+.indicator-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.dot.red { background-color: #ff4d4f; }
+.dot.green { background-color: #52c41a; }
+.dot.gray { background-color: #d9d9d9; }
+
+.info-box {
+  background-color: #fff;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  color: #333;
+}
+
+.info-box h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+/* .footer-btn {
+  padding: 8px 12px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+} */
+
+/* .footer-btn:hover {
+  background-color: #f0f0f0;
+} */
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog-box {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.dialog-header button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.select-group, .input-group {
+  margin-bottom: 15px;
+}
+
+.select-group label, .input-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.select-group select, .input-group input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.search-btn {
+  padding: 8px 16px;
+  background-color: #1890ff;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.search-btn:hover {
+  background-color: #40a9ff;
+}
+
+.calendar-container {
+  display: flex;
+  gap: 20px;
+}
+
+.calendar-section {
+  flex: 1;
+}
+
+.calendar-month {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.calendar-header {
+  text-align: center;
+  font-weight: bold;
+  padding: 5px;
+  background-color: #f5f5f5;
+}
+
+.calendar-day {
+  text-align: center;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.calendar-day:hover {
+  background-color: #f0f0f0;
+}
+
+.highlight-green {
+  background-color: #e6ffe6;
+}
+
+.highlight-orange {
+  background-color: #fff7e6;
+}
+
+.selected-day {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+.history-section {
+  flex: 1;
+}
+
+.history-section h3 {
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.history-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.history-section li {
+  padding: 5px 0;
+  font-size: 14px;
+}
+
+.dialog-footer {
+  margin-top: 15px;
+  text-align: right;
+}
+
+.dialog-footer button {
+  padding: 8px 16px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dialog-footer button:hover {
+  background-color: #f0f0f0;
+}
+
+.footer-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  border: 1px solid #ccc;
+  padding: 8px;
+  background-color: #fff;
+  margin-bottom: 100px;
+}
+
+.footer-btn {
+  padding: 8px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  margin-bottom: 40px;
+  margin-top: 40px;
+}
+
+.footer-btn:hover {
+  background-color: #f0f0f0;
+}

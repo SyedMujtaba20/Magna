@@ -110,26 +110,21 @@ const Sidebar = () => {
             <p>No. of Casts: -</p>
             <p>Date: 2023-09-27 06:13</p>
           </div>
-
         </div>
 
-
-
-              <div className="footer-buttons">
-        <button className="footer-btn">{'<'}</button>
-        {/* Existing folder button */}
-        <button className="footer-btn" onClick={handleDialogOpen}>
-          📁
-        </button>
-        {/* New folder button added */}
-        {/* <button className="footer-btn" onClick={handleDialogOpen}>
-          <FaRegFolderOpen size={16} /> {/* Using FaRegFolderOpen icon */}
-        {/* </button>  */}
-        <button className="footer-btn">{'>'}</button>
+        <div className="footer-buttons">
+          <button className="footer-btn">{'<'}</button>
+          {/* Existing folder button */}
+          <button className="footer-btn" onClick={handleDialogOpen}>
+            📁
+          </button>
+          {/* New folder button added */}
+          {/* <button className="footer-btn" onClick={handleDialogOpen}>
+            <FaRegFolderOpen size={16} /> {/* Using FaRegFolderOpen icon */}
+          {/* </button> */}
+          <button className="footer-btn">{'>'}</button>
+        </div>
       </div>
-      </div> {/* End of scrollable content */}
-
-
 
       {isDialogOpen && (
         <div className="dialog-overlay">

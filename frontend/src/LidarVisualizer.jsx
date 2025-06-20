@@ -758,8 +758,11 @@ const LidarVisualizer = () => {
   // Updated return statement for your LiDAR component
   return (
     <div style={lidarStyles.container}>
-      {/* Header with original sidebar content */}
-      <div style={lidarStyles.header}>
+      {/* Header with gradient background */}
+      <div style={{
+        ...lidarStyles.header,
+        background: 'linear-gradient(90deg, #87ceeb, #9370db)',
+      }}>
         <div style={lidarStyles.headerTitle}>LiDAR Viewer</div>
         <div style={lidarStyles.headerControls}>
           {/* Folder Upload */}

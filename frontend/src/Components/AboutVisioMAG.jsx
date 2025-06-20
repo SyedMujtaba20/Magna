@@ -24,7 +24,7 @@ const AboutVisioMAG = ({ isOpen, onClose }) => {
             {/* MAGNA Logo with red border */}
             <div className="logo-container magna-logo-container">
               <img 
-                src="public/WhatsApp Image 2025-06-03 at 21.40.40.jpeg" 
+                src="./public/MagnaLogo.jpeg" 
                 alt="MAGNA" 
                 style={{width: '100%', height: 'auto'}}
                 className="logo magna-logo"

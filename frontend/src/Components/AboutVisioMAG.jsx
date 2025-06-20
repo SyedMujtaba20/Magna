@@ -35,9 +35,9 @@ const AboutVisioMAG = ({ isOpen, onClose }) => {
           <div className="info-section" style={{ flex: '1' }}>
             <h3 className="visio-title">VisioMAG</h3>
             <p className="version-text">Version 1.1.0</p>
-            <p className="created-text">Created in October 2023</p>
+            <p className="created-text">Created in Jully 2025</p>
             <p className="developed-text">
-              Developed by <span className="tasiva-link">Tasiva Vision</span>
+              Developed by <span className="tasiva-link">Magna</span>
             </p>
             
             {/* Red arrow and MAGNA text */}

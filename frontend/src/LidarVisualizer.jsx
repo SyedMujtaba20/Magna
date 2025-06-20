@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
 import Sidebar from "./SidebarDummy";
-import { Play, RefreshCw, BellOff, Monitor, BarChart2, Settings, FileText, Download, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import { Play, RefreshCw, BellOff, Monitor, BarChart2, Settings, FileText, Download, Upload, CheckCircle, AlertCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import lidarStyles from './LidarStyles';
 
 // Gradient Scale Component
@@ -257,6 +257,17 @@ const LidarVisualizer = () => {
     }
   };
 
+  // Zoom functionality
+  const zoomIn = () => {
+    if (!controlsRef.current) return;
+    controlsRef.current.setDistance(controlsRef.current.distance * 0.9); // Zoom in by 10%
+  };
+
+  const zoomOut = () => {
+    if (!controlsRef.current) return;
+    controlsRef.current.setDistance(controlsRef.current.distance * 1.1); // Zoom out by 10%
+  };
+
   // Create a simple OrbitControls implementation
   const createSimpleControls = (camera, domElement) => {
     let isMouseDown = false;
@@ -266,6 +277,7 @@ const LidarVisualizer = () => {
     let targetRotationY = 0;
     let rotationX = 0;
     let rotationY = 0;
+    let distance = 50; // Initial distance
 
     const onMouseDown = (event) => {
       isMouseDown = true;
@@ -290,24 +302,37 @@ const LidarVisualizer = () => {
       mouseY = event.clientY;
     };
 
+    const onWheel = (event) => {
+      event.preventDefault();
+      const delta = event.deltaY * 0.01;
+      distance = Math.max(5, Math.min(100, distance + delta));
+    };
+
     domElement.addEventListener("mousedown", onMouseDown);
     domElement.addEventListener("mouseup", onMouseUp);
     domElement.addEventListener("mousemove", onMouseMove);
+    domElement.addEventListener("wheel", onWheel);
 
     return {
       update: () => {
         rotationX += (targetRotationX - rotationX) * 0.1;
         rotationY += (targetRotationY - rotationY) * 0.1;
 
-        camera.position.x = Math.sin(rotationY) * 30;
-        camera.position.z = Math.cos(rotationY) * 30;
-        camera.position.y = Math.sin(rotationX) * 30;
+        // Update camera position based on rotation and distance
+        camera.position.x = Math.sin(rotationY) * distance * Math.cos(rotationX);
+        camera.position.y = Math.sin(rotationX) * distance;
+        camera.position.z = Math.cos(rotationY) * distance * Math.cos(rotationX);
         camera.lookAt(0, 0, 0);
       },
+      setDistance: (newDistance) => {
+        distance = Math.max(5, Math.min(100, newDistance)); // Clamp distance
+      },
+      distance, // Expose distance for zoom functions
       dispose: () => {
         domElement.removeEventListener("mousedown", onMouseDown);
         domElement.removeEventListener("mouseup", onMouseUp);
         domElement.removeEventListener("mousemove", onMouseMove);
+        domElement.removeEventListener("wheel", onWheel);
       },
     };
   };
@@ -574,9 +599,7 @@ const LidarVisualizer = () => {
       firstLine.includes("z");
 
     let startIndex = hasHeader ? 1 : 0;
-    let xIndex = 0,
-      yIndex = 1,
-      zIndex = 2;
+    let xIndex, yIndex, zIndex;
 
     if (hasHeader) {
       const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
@@ -587,12 +610,20 @@ const LidarVisualizer = () => {
       if (xIndex === -1 || yIndex === -1 || zIndex === -1) {
         throw new Error("Could not find x, y, z columns in header");
       }
+    } else {
+      // Assuming the format "0 X Y Z ..." for data without header
+      // So X is at index 1, Y at 2, Z at 3
+      xIndex = 1;
+      yIndex = 2;
+      zIndex = 3;
     }
 
     for (let i = startIndex; i < lines.length; i++) {
-      const values = lines[i].split(",").map((v) => v.trim());
+      // Split by tab or comma
+      const values = lines[i].split(/[\t,]/).map((v) => v.trim());
 
-      if (values.length < 3) continue;
+      // Ensure we have enough values based on the determined indices
+      if (Math.max(xIndex, yIndex, zIndex) >= values.length) continue;
 
       const x = parseFloat(values[xIndex]);
       const y = parseFloat(values[yIndex]);
@@ -609,9 +640,13 @@ const LidarVisualizer = () => {
       let scale = 1;
       const maxCoord = Math.max(Math.abs(x), Math.abs(y), Math.abs(z));
 
-      if (maxCoord > 100) {
+      // Adjusted scaling logic: if coordinates are large (e.g., in mm), scale down.
+      // If coordinates are very small (e.g., fractions of a meter), scale up.
+      if (maxCoord > 5000) { // Assuming data in millimeters, converting to meters
+        scale = 0.001;
+      } else if (maxCoord > 100) { // Could be in cm, converting to meters
         scale = 0.01;
-      } else if (maxCoord < 1) {
+      } else if (maxCoord < 0.1 && maxCoord !== 0) { // Very small values, could be scaled up for better visibility
         scale = 10;
       }
 
@@ -683,6 +718,7 @@ const LidarVisualizer = () => {
     if (cameraRef.current && controlsRef.current) {
       cameraRef.current.position.set(0, 0, 50);
       cameraRef.current.lookAt(0, 0, 0);
+      controlsRef.current.setDistance(50); // Reset distance
       controlsRef.current.update();
     }
 
@@ -816,6 +852,54 @@ const LidarVisualizer = () => {
                   <div>Select a folder to load LiDAR data</div>
                 </div>
               )}
+              {/* Zoom Controls moved to the bottom right */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "10px",
+                  right: "10px",
+                  display: "flex",
+                  gap: "8px",
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  padding: "8px",
+                  borderRadius: "6px",
+                }}
+              >
+                <button
+                  onClick={zoomIn}
+                  style={{
+                    backgroundColor: "#3B82F6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "6px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  title="Zoom In"
+                >
+                  <ZoomIn size={16} />
+                </button>
+                <button
+                  onClick={zoomOut}
+                  style={{
+                    backgroundColor: "#3B82F6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "6px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  title="Zoom Out"
+                >
+                  <ZoomOut size={16} />
+                </button>
+              </div>
             </div>
             {selectedFile && <div style={lidarStyles.gradientScale}><GradientScale /></div>}
           </div>

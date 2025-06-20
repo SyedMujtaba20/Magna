@@ -24,7 +24,7 @@ const AboutVisioMAG = ({ isOpen, onClose }) => {
             {/* MAGNA Logo with red border */}
             <div className="logo-container magna-logo-container">
               <img 
-                src="./public/MagnaLogo.jpeg" 
+                src="/MagnaLogo.jpeg" 
                 alt="MAGNA" 
                 style={{width: '100%', height: 'auto'}}
                 className="logo magna-logo"

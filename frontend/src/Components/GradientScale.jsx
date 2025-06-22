@@ -1,58 +1,58 @@
-import React from 'react';
+import React from "react";
 
 const GradientScale = () => {
-  return (
-    <div style={{
-      position: 'absolute',
-      right: '20px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      backgroundColor: '#1a1a1a',
-      borderRadius: '12px',
-      padding: '20px 15px',
-      border: '1px solid #444',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-    }}>
-      <div style={{
-        fontWeight: 'bold',
-        marginBottom: '15px',
-        color: '#ffffff',
-        fontSize: '14px',
-        textAlign: 'center'
-      }}>
-        Distance(m)
-      </div>
-      
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          height: '240px',
-          fontSize: '12px',
-          color: '#ffffff',
-          textAlign: 'right',
-          fontWeight: 'bold'
-        }}>
-          <span>7.00</span>
-          <span>5.80</span>
-          <span>4.60</span>
-          <span>3.40</span>
-          <span>2.20</span>
-          <span>1.00</span>
-        </div>
+  const gradientStops = [
+    { distance: "1.00m", color: "#0000FF" },
+    { distance: "2.20m", color: "#00BFFF" },
+    { distance: "3.40m", color: "#00FF00" },
+    { distance: "4.60m", color: "#FFFF00" },
+    { distance: "5.80m", color: "#FF0000" },
+    { distance: "7.00m", color: "#FFC0CB" },
+  ];
 
-        <div style={{
-          width: '24px',
-          height: '240px',
-          background: 'linear-gradient(to bottom, #FFC0CB 0%, #FF0000 20%, #FFFF00 40%, #00FF00 60%, #00BFFF 80%, #0000FF 100%)',
-          border: '2px solid #333',
-          borderRadius: '6px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-        }} />
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "15px",
+        color: "white",
+        fontSize: "12px",
+      }}
+    >
+      <span style={{ color: "#cccccc", fontWeight: "500" }}>
+        Thickness Scale:
+      </span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          background: `linear-gradient(to right, ${gradientStops
+            .map((stop) => stop.color)
+            .join(", ")})`,
+          height: "20px",
+          width: "300px",
+          borderRadius: "10px",
+          border: "1px solid #404040",
+          position: "relative",
+        }}
+      >
+        {gradientStops.map((stop, index) => (
+          <div
+            key={index}
+            style={{
+              position: "absolute",
+              left: `${(index / (gradientStops.length - 1)) * 100}%`,
+              transform: "translateX(-50%)",
+              bottom: "-25px",
+              fontSize: "10px",
+              color: "#cccccc",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {stop.distance}
+          </div>
+        ))}
       </div>
     </div>
   );

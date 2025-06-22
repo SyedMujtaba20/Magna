@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-const app = require('../app');
+const app = require('../app'); // make sure app.js exports the Express instance
 const http = require('http');
 const port = normalizePort(process.env.PORT || '3001');
-app.set('port', port);
+
+app.set('port', port); // 💥 Error here if app is not a real Express app
 
 const server = http.createServer(app);
 server.listen(port, () => {

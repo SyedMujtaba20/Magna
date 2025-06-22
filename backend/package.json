@@ -2,13 +2,13 @@
   "name": "my-backend",
   "version": "0.0.0",
   "private": true,
-"scripts": {
-  "start": "node ./bin/www",
-  "migrate": "npx sequelize-cli db:migrate",
-  "undo": "npx sequelize-cli db:migrate:undo:all",
-  "seed": "npx sequelize-cli db:seed:all",
-  "seed:undo": "npx sequelize-cli db:seed:undo:all"
-},
+  "scripts": {
+    "start": "node ./bin/www",
+    "migrate": "npx sequelize-cli db:migrate",
+    "undo": "npx sequelize-cli db:migrate:undo:all",
+    "seed": "npx sequelize-cli db:seed:all",
+    "seed:undo": "npx sequelize-cli db:seed:undo:all"
+  },
   "dependencies": {
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",

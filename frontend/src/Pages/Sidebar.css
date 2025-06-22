@@ -273,3 +273,9 @@
 .footer-btn:hover {
   background-color: #f0f0f0;
 }
+
+.btn.active {
+  background-color: #3B82F6;
+  color: white;
+  font-weight: bold;
+}

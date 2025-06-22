@@ -1,7 +1,7 @@
 // /src/App.jsx
 import React from 'react';
-import LidarVisualizer from './LidarVisualizer';
-import Sidebar from './SidebarDummy';
+import LidarVisualizer from '../src/Pages/LidarVisualizer';
+import Sidebar from '../src/Pages/SidebarDummy';
 import HeaderComponent from '../src/Components/HeaderComponent';
 // import { Sidebar } from 'lucide-react';
 

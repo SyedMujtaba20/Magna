@@ -1,12 +1,12 @@
 import * as THREE from "three";
 
 const colorStops = [
-  { distance: 1.0, color: new THREE.Color(0x0000ff) },
-  { distance: 2.2, color: new THREE.Color(0x00bfff) },
-  { distance: 3.4, color: new THREE.Color(0x00ff00) },
-  { distance: 4.6, color: new THREE.Color(0xffff00) },
-  { distance: 5.8, color: new THREE.Color(0xff0000) },
-  { distance: 7.0, color: new THREE.Color(0xffc0cb) },
+  { distance: 1.0, color: new THREE.Color(0x0000ff) }, // Blue - thickest
+  { distance: 2.2, color: new THREE.Color(0x00bfff) }, // Light blue
+  { distance: 3.4, color: new THREE.Color(0x00ff00) }, // Green
+  { distance: 4.6, color: new THREE.Color(0xffff00) }, // Yellow
+  { distance: 5.8, color: new THREE.Color(0xff0000) }, // Red
+  { distance: 7.0, color: new THREE.Color(0xffc0cb) }, // Pink - thinnest
 ];
 
 export const getColorForThickness = (
@@ -43,7 +43,7 @@ export const getColorForThickness = (
   if (wearRange !== "all") {
     const [min, max] = ranges[wearRange] || [0, 1];
     if (normalized < min || normalized > max) {
-      return null; // 💡 skip rendering this point
+      return null; // Skip rendering this point
     }
   }
 
@@ -64,107 +64,180 @@ export const getColorForThickness = (
   return colorStops[colorStops.length - 1].color;
 };
 
+// Helper: Simple groupBy function
+export const groupBy = (array, keyFn) => {
+  return array.reduce((result, item) => {
+    const key = keyFn(item);
+    if (!result[key]) result[key] = [];
+    result[key].push(item);
+    return result;
+  }, {});
+};
+
+// Zone Mapping Function (adjusted for furnace coordinates)
+export const getZone = (y) => {
+  // Adjust these thresholds based on your furnace geometry
+  if (y > 0) return "Roof";
+  if (y > -0.5) return "SlagLine";
+  if (y > -1.0) return "Belly";
+  if (y > -1.5) return "InitialBricks";
+  return "Bottom";
+};
+
+// Profile Index Function (adjusted for your coordinate system)
+export const getProfileIndex = (x) => {
+  // Based on your data (X around 7.2-7.3), create 20 slices
+  const minX = 7.0;
+  const maxX = 7.5;
+  const normalized = Math.min(Math.max((x - minX) / (maxX - minX), 0), 0.999);
+  return Math.floor(normalized * 20);
+};
+
+// Timestamp to Date Converter
+export const timestampToDate = (timestamp) => {
+  // Your timestamp appears to be in nanoseconds
+  const date = new Date(Number(timestamp) / 1e6);
+  return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+};
+
+// Main CSV Parser for your LiDAR data format
 export const parseCSV = (content) => {
   const lines = content.split("\n").filter((line) => line.trim() !== "");
   let points = [];
   let minThickness = Infinity;
   let maxThickness = -Infinity;
+
   if (lines.length === 0) {
     throw new Error("Empty CSV file");
   }
-  const firstLine = lines[0].toLowerCase();
-  const hasHeader = firstLine.includes("x") && firstLine.includes("y") && firstLine.includes("z");
-  let startIndex = hasHeader ? 1 : 0;
-  let xIndex, yIndex, zIndex, thicknessIndex, sectionIndex, furnaceIdIndex;
-  if (hasHeader) {
-    const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
-    xIndex = header.findIndex((h) => h === "x");
-    yIndex = header.findIndex((h) => h === "y");
-    zIndex = header.findIndex((h) => h === "z");
-    thicknessIndex = header.findIndex((h) => h === "thickness");
-    sectionIndex = header.findIndex((h) => h === "section");
-    furnaceIdIndex = header.findIndex((h) => h === "furnace_id");
-    if (xIndex === -1 || yIndex === -1 || zIndex === -1) {
-      throw new Error("Could not find x, y, z columns in header");
-    }
-  } else {
-    xIndex = 1;
-    yIndex = 2;
-    zIndex = 3;
-    thicknessIndex = 4;
-    sectionIndex = 5;
-    furnaceIdIndex = 6;
+
+  // Parse header
+  const header = lines[0].split(",").map((h) => h.trim());
+  console.log("CSV Headers:", header);
+
+  // Find column indices
+  const xIndex = header.findIndex((h) => h.toLowerCase() === "x");
+  const yIndex = header.findIndex((h) => h.toLowerCase() === "y");
+  const zIndex = header.findIndex((h) => h.toLowerCase() === "z");
+  const timestampIndex = header.findIndex((h) => h.toLowerCase() === "timestamp");
+  const reflectivityIndex = header.findIndex((h) => h.toLowerCase() === "reflectivity");
+  const tagIndex = header.findIndex((h) => h.toLowerCase() === "tag");
+
+  if (xIndex === -1 || yIndex === -1 || zIndex === -1) {
+    throw new Error("Could not find X, Y, Z columns in CSV header");
   }
-  for (let i = startIndex; i < lines.length; i++) {
-    const values = lines[i].split(/[\t,]/).map((v) => v.trim());
-    if (Math.max(xIndex, yIndex, zIndex, thicknessIndex, sectionIndex, furnaceIdIndex) >= values.length) continue;
+
+  console.log(`Found columns - X: ${xIndex}, Y: ${yIndex}, Z: ${zIndex}, Timestamp: ${timestampIndex}`);
+
+  // Process data rows (skip header)
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(",").map((v) => v.trim());
+    
+    if (values.length < Math.max(xIndex, yIndex, zIndex) + 1) {
+      continue; // Skip incomplete rows
+    }
+
     const x = parseFloat(values[xIndex]);
     const y = parseFloat(values[yIndex]);
     const z = parseFloat(values[zIndex]);
-    const thickness = parseFloat(values[thicknessIndex] || Math.sqrt(x * x + y * y + z * z));
-    if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(thickness)) continue;
+    
+    if (isNaN(x) || isNaN(y) || isNaN(z)) {
+      continue; // Skip invalid coordinates
+    }
+
+    // Calculate thickness from distance to origin (or use reflectivity as proxy)
+    let thickness;
+    if (reflectivityIndex !== -1 && !isNaN(parseFloat(values[reflectivityIndex]))) {
+      // Use reflectivity as thickness indicator
+      thickness = parseFloat(values[reflectivityIndex]) / 10; // Scale down reflectivity
+    } else {
+      // Calculate distance from origin as thickness
+      thickness = Math.sqrt(x * x + y * y + z * z);
+    }
+
     minThickness = Math.min(minThickness, thickness);
     maxThickness = Math.max(maxThickness, thickness);
+
+    // Determine appropriate scaling
     let scale = 1;
     const maxCoord = Math.max(Math.abs(x), Math.abs(y), Math.abs(z));
-    if (maxCoord > 5000) {
-      scale = 0.001;
+    if (maxCoord > 1000) {
+      scale = 0.001; // Convert mm to meters
     } else if (maxCoord > 100) {
-      scale = 0.01;
-    } else if (maxCoord < 0.1 && maxCoord !== 0) {
-      scale = 10;
+      scale = 0.01; // Convert cm to meters
     }
-    points.push({
-      position: [x * scale, y * scale, z * scale],
+
+    const scaledX = x * scale;
+    const scaledY = y * scale;
+    const scaledZ = z * scale;
+
+    // Create point data
+    const point = {
+      position: [scaledX, scaledY, scaledZ],
       thickness,
-      section: values[sectionIndex] || "Bricks", // Default to Bricks
-      furnaceId: values[furnaceIdIndex] || "default", // Default furnace ID
-    });
+      zone: getZone(scaledY),
+      profileIndex: getProfileIndex(scaledX),
+      timestamp: timestampIndex !== -1 ? values[timestampIndex] : null,
+      reflectivity: reflectivityIndex !== -1 ? parseFloat(values[reflectivityIndex]) : null,
+      tag: tagIndex !== -1 ? values[tagIndex] : null,
+      section: "LiDAR",
+      furnaceId: "default",
+    };
+
+    points.push(point);
+
+    // Progress logging for large datasets
+    if (i % 50000 === 0) {
+      console.log(`Processed ${i}/${lines.length - 1} rows...`);
+    }
   }
+
   if (points.length === 0) {
     throw new Error("No valid data points found in CSV");
   }
+
+  console.log(`Successfully parsed ${points.length} points from ${lines.length - 1} rows`);
+  console.log(`Thickness range: ${minThickness.toFixed(3)} - ${maxThickness.toFixed(3)}`);
+
   return { points, minThickness, maxThickness };
 };
 
-export const parseThicknessCSV = (content) => {
-  const lines = content.split("\n").filter((line) => line.trim() !== "");
-  let points = [];
+// Alternative parser specifically for thickness data
+export const parseThicknessCSV = (csvContent) => {
+  const lines = csvContent.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim());
+
+  const xIndex = headers.findIndex(h => h.toLowerCase() === 'x');
+  const yIndex = headers.findIndex(h => h.toLowerCase() === 'y');
+  const zIndex = headers.findIndex(h => h.toLowerCase() === 'z');
+  const timestampIndex = headers.findIndex(h => h.toLowerCase() === 'timestamp');
+
+  if (xIndex === -1 || yIndex === -1 || zIndex === -1) {
+    throw new Error('CSV headers missing required X, Y, Z columns.');
+  }
+
+  const points = [];
   let minThickness = Infinity;
   let maxThickness = -Infinity;
 
-  if (lines.length === 0) throw new Error("Empty CSV file");
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim());
 
-  const firstLine = lines[0].toLowerCase();
-  const hasHeader = firstLine.includes("x") && firstLine.includes("y") && firstLine.includes("z");
-  const startIndex = hasHeader ? 1 : 0;
-
-  let xIndex = 1, yIndex = 2, zIndex = 3, thicknessIndex = 4;
-  if (hasHeader) {
-    const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
-    xIndex = header.findIndex((h) => h === "x");
-    yIndex = header.findIndex((h) => h === "y");
-    zIndex = header.findIndex((h) => h === "z");
-    thicknessIndex = header.findIndex((h) => h === "thickness");
-    if (xIndex === -1 || yIndex === -1 || zIndex === -1) {
-      throw new Error("Could not find x, y, z columns in header");
-    }
-  }
-
-  for (let i = startIndex; i < lines.length; i++) {
-    const values = lines[i].split(/[\t,]/).map((v) => v.trim());
     const x = parseFloat(values[xIndex]);
     const y = parseFloat(values[yIndex]);
     const z = parseFloat(values[zIndex]);
-    const thickness = parseFloat(values[thicknessIndex] || Math.sqrt(x * x + y * y + z * z));
-    if (isNaN(x) || isNaN(y) || isNaN(z) || isNaN(thickness)) continue;
+    const timestamp = values[timestampIndex];
 
+    if (isNaN(x) || isNaN(y) || isNaN(z)) continue;
+
+    const thickness = Math.sqrt(x * x + y * y + z * z);
     minThickness = Math.min(minThickness, thickness);
     maxThickness = Math.max(maxThickness, thickness);
 
+    // Apply scaling
     let scale = 1;
     const maxCoord = Math.max(Math.abs(x), Math.abs(y), Math.abs(z));
-    if (maxCoord > 5000) scale = 0.001;
+    if (maxCoord > 1000) scale = 0.001;
     else if (maxCoord > 100) scale = 0.01;
     else if (maxCoord < 0.1 && maxCoord !== 0) scale = 10;
 
@@ -172,29 +245,18 @@ export const parseThicknessCSV = (content) => {
     const scaledY = y * scale;
     const scaledZ = z * scale;
 
-    const zone = (() => {
-      if (scaledZ >= 2) return "Roof";
-      if (scaledZ >= 1) return "SlagLine";
-      if (scaledZ >= 0) return "Belly";
-      if (scaledZ >= -1) return "InitialBricks";
-      return "Bottom";
-    })();
-
-    const profileIndex = (() => {
-      const minX = 7.2;
-      const maxX = 7.4;
-      const normalized = Math.min(Math.max((scaledX - minX) / (maxX - minX), 0), 0.999);
-      return Math.floor(normalized * 10);
-    })();
-
     points.push({
       position: [scaledX, scaledY, scaledZ],
       thickness,
-      profileIndex,
-      zone,
+      zone: getZone(scaledY),
+      profileIndex: getProfileIndex(scaledX),
+      timestamp: timestamp,
+      section: "Bricks",
+      furnaceId: "default",
     });
   }
 
-  if (points.length === 0) throw new Error("No valid data points found in CSV");
+  if (points.length === 0) throw new Error('No valid data points found in CSV.');
+
   return { points, minThickness, maxThickness };
 };

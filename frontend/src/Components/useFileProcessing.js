@@ -1,4 +1,3 @@
-
 import { useRef } from "react";
 import { parseCSV } from "../Components/utils";
 
@@ -155,6 +154,3 @@ const useFileProcessing = ({
 };
 
 export default useFileProcessing;
-
-
-

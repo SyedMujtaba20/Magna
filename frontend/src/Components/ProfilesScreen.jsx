@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { getColorForThickness } from "./utils";
 
-const ProfilesScreen = ({ fileDataCache, selectedFile, selectedFurnace, isUiDisabled }) => {
+const ProfilesScreen = ({ files,fileDataCache, selectedFile, selectedFurnace, isUiDisabled }) => {
   const [horizontalSlice, setHorizontalSlice] = useState(0);
   const [verticalSlice, setVerticalSlice] = useState(0);
   const canvasRef = useRef(null);

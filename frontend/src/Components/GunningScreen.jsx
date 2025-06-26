@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { getColorForThickness } from "./utils";
 
-const GunningScreen = ({ fileDataCache, selectedFile, selectedFurnace, isUiDisabled }) => {
+const GunningScreen = ({ files,fileDataCache, selectedFile, selectedFurnace, isUiDisabled }) => {
   const [section, setSection] = useState("All");
   const [parameters, setParameters] = useState({
     repairMaterial: "Standard",

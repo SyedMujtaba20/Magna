@@ -260,3 +260,120 @@ export const parseThicknessCSV = (csvContent) => {
 
   return { points, minThickness, maxThickness };
 };
+
+const zoneMap = {
+  Roof: 100,
+  SlagLine: 50,
+  Belly: 0,
+  InitialBricks: -50,
+  Bottom: -100,
+};
+
+const profileLabels = Array.from({ length: 20 }, (_, i) => `P${i + 1}`);
+
+// const getColorForThickness = (thickness, min, max, useGlobal, range) => {
+//   const normalized = Math.max(0, Math.min(1, (thickness - min) / (max - min)));
+//   return {
+//     r: normalized,
+//     g: 1 - normalized,
+//     b: 0.5,
+//   };
+// };
+
+const getThicknessHistoryForCell = (cellData, fileDataCache) => {
+  const { zone, profileIndex } = cellData;
+  const history = [];
+
+  for (const [fileName, fileData] of fileDataCache) {
+    let timestamp = null;
+    const points = fileData.points || [];
+    if (points.length > 0 && points[0].timestamp) {
+      try {
+        const tsNumber = parseInt(points[0].timestamp, 10);
+        if (!isNaN(tsNumber)) {
+          timestamp = new Date(tsNumber).toISOString().split("T")[0];
+        }
+      } catch (e) {
+        console.warn("[History] Failed to parse point timestamp for file:", fileName, points[0].timestamp);
+      }
+    }
+
+    if (!timestamp) {
+      try {
+        timestamp = new Date(fileName).toISOString().split("T")[0];
+      } catch (e) {
+        console.warn("[History] Invalid timestamp for file:", fileName);
+        continue;
+      }
+    }
+
+    const matchingPoints = points.filter(
+      (point) =>
+        point.zone === zone &&
+        point.profileIndex === profileIndex &&
+        typeof point.thickness === "number"
+    );
+
+    if (matchingPoints.length > 0) {
+      const avgThickness = matchingPoints.reduce((sum, point) => sum + point.thickness, 0) / matchingPoints.length / 10;
+      history.push({
+        date: timestamp,
+        thickness: avgThickness,
+      });
+    }
+  }
+
+  history.sort((a, b) => new Date(a.date) - new Date(b.date));
+  console.log("[History] Cell history:", history);
+  return history;
+};
+
+const getThicknessHistoryForPoint = (pointData, fileDataCache) => {
+  const { position } = pointData;
+  const history = [];
+
+  for (const [fileName, fileData] of fileDataCache) {
+    let timestamp = null;
+    const points = fileData.points || [];
+    if (points.length > 0 && points[0].timestamp) {
+      try {
+        const tsNumber = parseInt(points[0].timestamp, 10);
+        if (!isNaN(tsNumber)) {
+          timestamp = new Date(tsNumber).toISOString().split("T")[0];
+        }
+      } catch (e) {
+        console.warn("[History] Failed to parse point timestamp for file:", fileName, points[0].timestamp);
+      }
+    }
+
+    if (!timestamp) {
+      try {
+        timestamp = new Date(fileName).toISOString().split("T")[0];
+      } catch (e) {
+        console.warn("[History] Invalid timestamp for file:", fileName);
+        continue;
+      }
+    }
+
+    const matchingPoint = points.find((point) => {
+      if (!point.position || point.position.length !== 3) return false;
+      const dx = point.position[0] - position[0];
+      const dy = point.position[1] - position[1];
+      const dz = point.position[2] - position[2];
+      return Math.sqrt(dx * dx + dy * dy + dz * dz) < 0.01;
+    });
+
+    if (matchingPoint && typeof matchingPoint.thickness === "number") {
+      history.push({
+        date: timestamp,
+        thickness: matchingPoint.thickness / 10,
+      });
+    }
+  }
+
+  history.sort((a, b) => new Date(a.date) - new Date(b.date));
+  console.log("[History] Point history:", history);
+  return history;
+};
+
+export { zoneMap, profileLabels,  getThicknessHistoryForCell, getThicknessHistoryForPoint };

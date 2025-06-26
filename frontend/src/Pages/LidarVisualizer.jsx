@@ -177,6 +177,7 @@ const LidarVisualizer = () => {
       selectedFile,
       selectedFurnace,
       isUiDisabled,
+      files
     };
 
     switch (activeScreen) {

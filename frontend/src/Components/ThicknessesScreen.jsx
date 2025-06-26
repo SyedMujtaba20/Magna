@@ -1,10 +1,11 @@
+
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { Line } from 'react-chartjs-2';
 import { debounce } from 'lodash';
 import { X } from 'lucide-react';
 import { initializeScene, createGridOverlay, updateScene } from './sceneUtils';
-import { getThicknessDataAcrossFiles } from './chartUtils';
+import { getThicknessDataAcrossFiles, runDataCoverageAnalysis } from './chartUtils';
 
 // Custom hook to manage Chart.js cleanup
 const useChartCleanup = () => {
@@ -49,6 +50,7 @@ const ThicknessDialog = ({ showDialog, dialogData, files, onClose }) => {
 
   const getDialogChartData = (data) => {
     if (!data || !data.thicknessData || data.thicknessData.length === 0) {
+      console.log('[ThicknessDialog] No data for:', data);
       return {
         labels: ['No Data'],
         datasets: [{
@@ -122,6 +124,80 @@ const ThicknessDialog = ({ showDialog, dialogData, files, onClose }) => {
   };
 
   if (!showDialog || !dialogData) return null;
+
+  // Enhanced error message for no data
+  if (!dialogData.thicknessData || dialogData.thicknessData.length === 0) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '800px',
+            maxHeight: '80%',
+            overflow: 'auto',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              borderBottom: '2px solid #e2e8f0',
+              paddingBottom: '10px',
+            }}
+          >
+            <h3 style={{ margin: 0, color: '#1a202c' }}>
+              {dialogData.type === 'cell'
+                ? `Cell: ${dialogData.zone} - ${dialogData.profile}`
+                : `Point #${dialogData.index}`}
+            </h3>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px',
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={20} color='#666' />
+            </button>
+          </div>
+          <div style={{ color: '#dc3545', textAlign: 'center', padding: '20px' }}>
+            No thickness data found for {dialogData.zone || 'unknown'}|{dialogData.profile || 'unknown'} in any of the {files.length} files.
+            <br />
+            Possible causes: Incorrect data format or missing data in CSV files.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -313,6 +389,48 @@ const ThicknessesScreen = ({ files, fileDataCache, selectedFile, selectedFurnace
     return data;
   }, [selectedFile?.name, fileDataCache]);
 
+  // Log fileDataCache and run coverage analysis
+  useEffect(() => {
+    if (files.length > 0 && fileDataCache.size > 0) {
+      files.forEach(file => {
+        const fileData = fileDataCache.get(file.name);
+        console.log(`[FileDataCache] ${file.name}:`, {
+          cellCount: fileData?.cells?.length || 0,
+          cells: fileData?.cells?.map(cell => ({
+            zone: cell.zone,
+            profile: cell.profile,
+            thickness: cell.averageThickness || cell.thickness,
+            allProps: Object.keys(cell)
+          })) || [],
+          pointCount: fileData?.points?.length || 0
+        });
+      });
+
+      const coverage = runDataCoverageAnalysis(files, fileDataCache);
+      console.log('[CoverageAnalysis] Zones:', coverage.zones);
+      console.log('[CoverageAnalysis] Profiles:', coverage.profiles);
+      console.log('[CoverageAnalysis] Combinations:', coverage.combinations);
+      console.log('[CoverageAnalysis] Zone Coverage:', coverage.zoneCoverage);
+      console.log('[CoverageAnalysis] Profile Coverage:', coverage.profileCoverage);
+      console.log('[CoverageAnalysis] Low Coverage Combos:', coverage.lowCoverageCombos);
+    }
+  }, [files, fileDataCache]);
+
+  // Log grid cell assignments
+  useEffect(() => {
+    if (gridMeshRef.current) {
+      gridMeshRef.current.traverse(child => {
+        if (child.userData.type === 'cell') {
+          console.log('[GridOverlay] Cell:', {
+            zone: child.userData.zone,
+            profile: child.userData.profile,
+            position: child.position
+          });
+        }
+      });
+    }
+  }, [isInitialized]);
+
   useEffect(() => {
     const cleanup = initializeScene(canvasRef, sceneRef, rendererRef, cameraRef, controlsRef, gridMeshRef, setIsInitialized);
     return cleanup;
@@ -390,7 +508,6 @@ const ThicknessesScreen = ({ files, fileDataCache, selectedFile, selectedFurnace
           cellIntersect.object.material.opacity = 0.3;
           cellIntersect.object.material.color.set(0x00ff88);
 
-          // Pass files and fileDataCache to getThicknessDataAcrossFiles
           const thicknessDataAcrossFiles = getThicknessDataAcrossFiles(cellData, 'cell', files, fileDataCache);
 
           const cellSelection = {
@@ -436,7 +553,6 @@ const ThicknessesScreen = ({ files, fileDataCache, selectedFile, selectedFurnace
             sceneRef.current.add(markerMesh);
             markerMeshRef.current = markerMesh;
 
-            // Pass files and fileDataCache to getThicknessDataAcrossFiles
             const thicknessDataAcrossFiles = getThicknessDataAcrossFiles(selectedData, 'point', files, fileDataCache);
 
             const brickSelection = {
@@ -575,7 +691,7 @@ const ThicknessesScreen = ({ files, fileDataCache, selectedFile, selectedFurnace
         >
           <div>Points: {points.length}</div>
           <div>Files: {files.length}</div>
-          <div>🟢 Zones: Roof, Slag Line, Belly, Initial Bricks, Bottom</div>
+          <div>🟢 Zones: Roof, SlagLine, Belly, InitialBricks, Bottom</div>
           <div>🔵 Profiles</div>
           <div>Click grid cells or points to view thickness across all files</div>
           <div>Drag to rotate, scroll to zoom</div>

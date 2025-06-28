@@ -25,7 +25,7 @@ const initializeScene = (
   rendererRef.current = renderer;
 
   const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-  camera.position.set(0, 0, 200);
+  camera.position.set(0, 0, 300); // Adjusted for mm scale
   camera.lookAt(0, 0, 0);
   cameraRef.current = camera;
 
@@ -82,16 +82,6 @@ const createGridOverlay = (sceneRef, gridMeshRef) => {
 
   if (gridMeshRef.current) {
     scene.remove(gridMeshRef.current);
-    // gridMeshRef.current.traverse((_logic) => {
-    //   if (child.geometry) child.geometry.dispose();
-    //   if (child.material) {
-    //     if (Array.isArray(child.material)) {
-    //       child.material.forEach((material) => material.dispose());
-    //     } else {
-    //       child.material.dispose();
-    //     }
-    //   }
-    // });
     gridMeshRef.current.traverse((child) => {
       if (child.geometry) child.geometry.dispose();
       if (child.material) {
@@ -102,7 +92,6 @@ const createGridOverlay = (sceneRef, gridMeshRef) => {
         }
       }
     });
-
     gridMeshRef.current = null;
   }
 
@@ -110,7 +99,7 @@ const createGridOverlay = (sceneRef, gridMeshRef) => {
   gridGroup.name = "gridOverlay";
 
   const zoneNames = Object.keys(zoneMap);
-  const zonePositions = Object.values(zoneMap);
+  const zonePositions = Object.values(zoneMap); // e.g., [-120, -60, 0, 60, 120] in mm
 
   zonePositions.forEach((zPos, index) => {
     const geometry = new THREE.BufferGeometry().setFromPoints([
@@ -153,7 +142,7 @@ const createGridOverlay = (sceneRef, gridMeshRef) => {
   });
 
   const profileCount = 20;
-  const profileSpacing = 300 / profileCount;
+  const profileSpacing = 300 / profileCount; // 15 mm
 
   for (let i = 0; i < profileCount; i++) {
     const xPos = -150 + i * profileSpacing;
@@ -173,7 +162,7 @@ const createGridOverlay = (sceneRef, gridMeshRef) => {
 
     const line = new THREE.Line(geometry, material);
     line.userData = {
-      infinitive: "profile",
+      type: "profile",
       name: `P${i + 1}`,
       position: xPos,
     };
@@ -203,17 +192,12 @@ const createGridOverlay = (sceneRef, gridMeshRef) => {
     }
   }
 
-  const cellGeometry = new THREE.PlaneGeometry(profileSpacing, 30);
+  const cellGeometry = new THREE.PlaneGeometry(profileSpacing, 30); // 15 mm x 30 mm
 
   for (let zoneIndex = 0; zoneIndex < zonePositions.length - 1; zoneIndex++) {
-    for (
-      let profileIndex = 0;
-      profileIndex < profileCount - 1;
-      profileIndex++
-    ) {
+    for (let profileIndex = 0; profileIndex < profileCount - 1; profileIndex++) {
       const xPos = -150 + profileIndex * profileSpacing + profileSpacing / 2;
-      const yPos =
-        (zonePositions[zoneIndex] + zonePositions[zoneIndex + 1]) / 2;
+      const yPos = (zonePositions[zoneIndex] + zonePositions[zoneIndex + 1]) / 2;
 
       const cellMaterial = new THREE.MeshBasicMaterial({
         color: 0x333333,
@@ -248,13 +232,40 @@ const createGridOverlay = (sceneRef, gridMeshRef) => {
   gridMeshRef.current = gridGroup;
 };
 
+// Helper function to detect if data has headers
+const detectDataWithHeaders = (points) => {
+  if (!points || points.length === 0) return false;
+  
+  // Check if the first few points have very small coordinate values (indicating header data)
+  // Header data typically has coordinates in centimeters (small values)
+  // While non-header data has coordinates in millimeters (larger values)
+  const sampleSize = Math.min(10, points.length);
+  let smallValueCount = 0;
+  
+  for (let i = 0; i < sampleSize; i++) {
+    const point = points[i];
+    if (point.position && point.position.length === 3) {
+      const [x, y, z] = point.position;
+      // If coordinates are generally small (< 50), likely header data in cm
+      if (Math.abs(x) < 50 && Math.abs(y) < 50 && Math.abs(z) < 50) {
+        smallValueCount++;
+      }
+    }
+  }
+  
+  // If more than half the sample has small values, assume it's header data
+  return smallValueCount > sampleSize / 2;
+};
+
+// Updated updateScene function with header detection
 const updateScene = (
   points,
   sceneRef,
   pointsMeshRef,
   isRenderingRef,
   setIsRendering,
-  prevPointsLengthRef
+  prevPointsLengthRef,
+  gridMeshRef
 ) => {
   return debounce(async () => {
     console.log("[updateScene] Called. Points:", points.length);
@@ -290,6 +301,10 @@ const updateScene = (
         return;
       }
 
+      // Detect if this is header data (small coordinates) or regular data
+      const hasHeaders = detectDataWithHeaders(points);
+      console.log("[updateScene] Data has headers:", hasHeaders);
+
       const positions = [];
       const colors = [];
       const validPoints = [];
@@ -310,14 +325,27 @@ const updateScene = (
           continue;
         }
 
-        const visualX = x * 10;
-        const visualY = y * 10;
-        const visualZ = z * 10;
+        // Apply scaling based on whether data has headers
+        let visualX, visualY, visualZ;
+        if (hasHeaders) {
+          // Header data: scale up by 10x (cm to mm * 10 for visibility)
+          visualX = x * 10;
+          visualY = y * 10;
+          visualZ = z * 10;
+        } else {
+          // Non-header data: use coordinates directly (already in appropriate scale)
+          visualX = x;
+          visualY = y;
+          visualZ = z;
+        }
 
         positions.push(visualX, visualY, visualZ);
 
-        const computedThickness =
-          point.thickness ?? Math.sqrt(x * x + y * y + z * z);
+        // Calculate thickness based on data type
+        const computedThickness = hasHeaders 
+          ? (point.thickness ?? Math.sqrt(x * x + y * y + z * z))  // Original calculation for header data
+          : (point.thickness ?? Math.abs(z) / 10);  // For non-header data, use |z| in cm
+
         const color = getColorForThickness(computedThickness, 0, 10, false, {});
 
         validPoints.push({
@@ -353,7 +381,7 @@ const updateScene = (
       );
 
       const material = new THREE.PointsMaterial({
-        size: 2,
+        size: hasHeaders ? 2 : 0.5, // Larger points for header data, smaller for non-header
         vertexColors: true,
         sizeAttenuation: false,
         depthTest: true,
@@ -367,6 +395,7 @@ const updateScene = (
       pointsMeshRef.current = pointsMesh;
 
       console.log("[updateScene] Rendered", validPoints.length, "points");
+      console.log("[updateScene] Point size:", hasHeaders ? 2 : 0.5);
       console.log(
         "[updateScene] Grid children:",
         gridMeshRef.current ? gridMeshRef.current.children.length : 0

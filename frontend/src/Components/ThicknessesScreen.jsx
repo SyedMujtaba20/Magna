@@ -449,134 +449,134 @@ const ThicknessesScreen = ({ files, fileDataCache, selectedFile, selectedFurnace
     setDebugInfo(`Brick: ${selectedBrick ? 'Selected' : 'None'}, Cell: ${selectedCell ? 'Selected' : 'None'}`);
   }, [selectedBrick, selectedCell]);
 
-  const handleCanvasClick = useCallback(
-    debounce((event) => {
-      console.log('[CanvasClick] Starting click handler');
-      console.log('[CanvasClick] isUiDisabled:', isUiDisabled);
-      console.log('[CanvasClick] isRendering:', isRendering);
+const handleCanvasClick = useCallback(
+  debounce((event) => {
+    console.log('[CanvasClick] Starting click handler');
+    console.log('[CanvasClick] isUiDisabled:', isUiDisabled);
+    console.log('[CanvasClick] isRendering:', isRendering);
 
-      if (isUiDisabled || isRendering) {
-        console.log('[CanvasClick] Blocked: UI disabled or rendering');
+    if (isUiDisabled || isRendering) {
+      console.log('[CanvasClick] Blocked: UI disabled or rendering');
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      console.log('[CanvasClick] No canvas reference');
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+
+    console.log('[CanvasClick] Mouse coords:', mouse.x, mouse.y);
+
+    const raycaster = raycasterRef.current;
+    raycaster.setFromCamera(mouse, cameraRef.current);
+
+    if (gridMeshRef.current) {
+      gridMeshRef.current.traverse((child) => {
+        if (child.userData.type === 'cell' && child.material) {
+          child.material.opacity = 0.2;
+          child.material.color.set(0x333333);
+        }
+      });
+    }
+
+    if (markerMeshRef.current) {
+      sceneRef.current.remove(markerMeshRef.current);
+      markerMeshRef.current.geometry.dispose();
+      markerMeshRef.current.material.dispose();
+      markerMeshRef.current = null;
+    }
+
+    if (gridMeshRef.current && showGrid) {
+      const gridIntersects = raycaster.intersectObjects(gridMeshRef.current.children, true);
+      console.log('[CanvasClick] Grid intersections:', gridIntersects.length);
+
+      const cellIntersect = gridIntersects
+        .filter((intersect) => intersect.object.userData.type === 'cell')
+        .sort((a, b) => a.distance - b.distance)[0];
+
+      if (cellIntersect) {
+        const cellData = cellIntersect.object.userData;
+        console.log('[CanvasClick] Grid cell selected:', cellData);
+
+        cellIntersect.object.material.opacity = 0.3;
+        cellIntersect.object.material.color.set(0x00ff88);
+
+        const thicknessDataAcrossFiles = getThicknessDataAcrossFiles(cellData, 'cell', files, fileDataCache);
+
+        const cellSelection = {
+          ...cellData,
+          type: 'cell',
+          thicknessData: thicknessDataAcrossFiles,
+        };
+
+        console.log('[CanvasClick] Setting selectedCell:', cellSelection);
+        setSelectedCell(cellSelection);
+        setSelectedBrick(null);
+
+        setTimeout(() => {
+          setDialogData(cellSelection);
+          setShowDialog(true);
+        }, 50);
         return;
       }
+    }
 
-      const canvas = canvasRef.current;
-      if (!canvas) {
-        console.log('[CanvasClick] No canvas reference');
-        return;
-      }
+    if (pointsMeshRef.current) {
+      const intersects = raycaster.intersectObject(pointsMeshRef.current);
+      console.log('[CanvasClick] Point intersections:', intersects.length);
 
-      const rect = canvas.getBoundingClientRect();
-      const mouse = new THREE.Vector2(
-        ((event.clientX - rect.left) / rect.width) * 2 - 1,
-        -((event.clientY - rect.top) / rect.height) * 2 + 1
-      );
+      if (intersects.length > 0) {
+        const selectedIndex = intersects[0].index;
+        const validPoints = pointsMeshRef.current.userData.validPoints;
+        const selectedData = validPoints[selectedIndex];
 
-      console.log('[CanvasClick] Mouse coords:', mouse.x, mouse.y);
+        if (selectedData) {
+          console.log('[CanvasClick] Point selected:', selectedData);
 
-      const raycaster = raycasterRef.current;
-      raycaster.setFromCamera(mouse, cameraRef.current);
+          const markerGeometry = new THREE.SphereGeometry(1, 16, 16); // Size in mm
+          const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+          const markerMesh = new THREE.Mesh(markerGeometry, markerMaterial);
+          const markerPos = {
+            x: selectedData.position[0], // Already in mm
+            y: selectedData.position[1],
+            z: selectedData.position[2],
+          };
+          markerMesh.position.set(markerPos.x, markerPos.y, markerPos.z);
+          console.log('[CanvasClick] Marker position:', markerPos);
+          sceneRef.current.add(markerMesh);
+          markerMeshRef.current = markerMesh;
 
-      if (gridMeshRef.current) {
-        gridMeshRef.current.traverse((child) => {
-          if (child.userData.type === 'cell' && child.material) {
-            child.material.opacity = 0.2;
-            child.material.color.set(0x333333);
-          }
-        });
-      }
+          const thicknessDataAcrossFiles = getThicknessDataAcrossFiles(selectedData, 'point', files, fileDataCache);
 
-      if (markerMeshRef.current) {
-        sceneRef.current.remove(markerMeshRef.current);
-        markerMeshRef.current.geometry.dispose();
-        markerMeshRef.current.material.dispose();
-        markerMeshRef.current = null;
-      }
-
-      if (gridMeshRef.current && showGrid) {
-        const gridIntersects = raycaster.intersectObjects(gridMeshRef.current.children, true);
-        console.log('[CanvasClick] Grid intersections:', gridIntersects.length);
-
-        const cellIntersect = gridIntersects
-          .filter((intersect) => intersect.object.userData.type === 'cell')
-          .sort((a, b) => a.distance - b.distance)[0];
-
-        if (cellIntersect) {
-          const cellData = cellIntersect.object.userData;
-          console.log('[CanvasClick] Grid cell selected:', cellData);
-
-          cellIntersect.object.material.opacity = 0.3;
-          cellIntersect.object.material.color.set(0x00ff88);
-
-          const thicknessDataAcrossFiles = getThicknessDataAcrossFiles(cellData, 'cell', files, fileDataCache);
-
-          const cellSelection = {
-            ...cellData,
-            type: 'cell',
+          const brickSelection = {
+            ...selectedData,
+            index: selectedIndex,
+            type: 'point',
+            thickness: selectedData.thickness, // Already in cm
             thicknessData: thicknessDataAcrossFiles,
           };
 
-          console.log('[CanvasClick] Setting selectedCell:', cellSelection);
-          setSelectedCell(cellSelection);
-          setSelectedBrick(null);
+          console.log('[CanvasClick] Setting selectedBrick:', brickSelection);
+          setSelectedBrick(brickSelection);
+          setSelectedCell(null);
 
           setTimeout(() => {
-            setDialogData(cellSelection);
+            setDialogData(brickSelection);
             setShowDialog(true);
           }, 50);
-          return;
         }
       }
-
-      if (pointsMeshRef.current) {
-        const intersects = raycaster.intersectObject(pointsMeshRef.current);
-        console.log('[CanvasClick] Point intersections:', intersects.length);
-
-        if (intersects.length > 0) {
-          const selectedIndex = intersects[0].index;
-          const validPoints = pointsMeshRef.current.userData.validPoints;
-          const selectedData = validPoints[selectedIndex];
-
-          if (selectedData) {
-            console.log('[CanvasClick] Point selected:', selectedData);
-
-            const markerGeometry = new THREE.SphereGeometry(3, 16, 16);
-            const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-            const markerMesh = new THREE.Mesh(markerGeometry, markerMaterial);
-            const markerPos = {
-              x: selectedData.position[0] * 10,
-              y: selectedData.position[1] * 10,
-              z: selectedData.position[2] * 10,
-            };
-            markerMesh.position.set(markerPos.x, markerPos.y, markerPos.z);
-            console.log('[CanvasClick] Marker position:', markerPos);
-            sceneRef.current.add(markerMesh);
-            markerMeshRef.current = markerMesh;
-
-            const thicknessDataAcrossFiles = getThicknessDataAcrossFiles(selectedData, 'point', files, fileDataCache);
-
-            const brickSelection = {
-              ...selectedData,
-              index: selectedIndex,
-              type: 'point',
-              thickness: selectedData.thickness / 10,
-              thicknessData: thicknessDataAcrossFiles,
-            };
-
-            console.log('[CanvasClick] Setting selectedBrick:', brickSelection);
-            setSelectedBrick(brickSelection);
-            setSelectedCell(null);
-
-            setTimeout(() => {
-              setDialogData(brickSelection);
-              setShowDialog(true);
-            }, 50);
-          }
-        }
-      }
-    }, 200),
-    [isUiDisabled, isRendering, showGrid, files, fileDataCache]
-  );
+    }
+  }, 200),
+  [isUiDisabled, isRendering, showGrid, files, fileDataCache]
+);
 
   const handleMouseMove = debounce(() => {
     console.log('[Canvas] Mouse move event');

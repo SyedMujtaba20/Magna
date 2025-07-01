@@ -231,9 +231,9 @@ const Sidebar = ({
       </div>
 
       {/* Furnace Dialog */}
-      {isDialogOpen && (
+      {/* {isDialogOpen && (
         <FurnaceDialog isOpen={isDialogOpen} onClose={handleDialogClose} />
-      )}
+      )} */}
     </div>
   );
 };

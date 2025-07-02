@@ -1,0 +1,102 @@
+{
+  "about": {
+    "title": "About VisioMAG",
+    "version": "Version 1.1.0",
+    "created": "Created in July 2025",
+    "developedBy": "Developed by {{company}}"
+  },
+  "report": {
+    "title": "Campaign Report",
+    "start": "Campaign Start",
+    "duration": "Duration: {{days}} days",
+    "areaTitle": "{{area}} - Avg. Thickness Over Campaign",
+    "selectType": "Select Report Type",
+      "daily": "Daily Report",
+    "campaign": "Campaign Report"
+  },
+  "comparison": {
+    "instructions": "Select two castings for dual-view comparison. The template will be displayed in neutral colors, while the comparison will highlight critical wear areas in bright red for immediate identification.",
+    "casting": "Comparison Casting:",
+    "template": "Reference Template:",
+    "dualViewTitle": "Dual Furnace Comparison View",
+    "templateLabel": "Template",
+    "comparisonLabel": "Comparison",
+    "wearAnalysis": "Wear Analysis",
+    "highWear": "High-Wear Detection",
+    "setupTitle": "Dual Furnace Comparison Setup",
+    "startDual": "Start Dual Comparison",
+    "selectCasting": "Select Comparison Casting",
+    "selectTemplate": "Select Reference Template",
+    "selectFurnace": "Please select a furnace",
+    "measurementStats": "Measurement Statistics:",
+    "criticalWarningTitle": "CRITICAL ATTENTION REQUIRED",
+    "criticalWarningDesc": "Red areas indicate severe thickness reduction requiring immediate inspection and potential replacement.",
+    "backToSelection": "Back to Selection",
+    "backTo3D": "Back to 3D View",
+    "analysisSettings": "ANALYSIS SETTINGS",
+    "repairMaterial": "Repair material:",
+    "materials": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Standard Gunite",
+      "highDensity": "High-Density",
+      "lowThermal": "Low-Thermal"
+    },
+    "distanceBetweenAreas": "Distance between areas:",
+    "minAreaSize": "Minimum area size:"
+  },
+  "view": {
+    "controls": "Use mouse to rotate • Scroll to zoom"
+  },
+  "units": {
+    "meters": "meters",
+    "points": "points"
+  },
+  "common": {
+    "accept": "Accept",
+    "total": "TOTAL"
+  },
+  "repair": {
+    "title": "REPAIR PROPOSAL",
+    "material": "Material",
+    "density": "Density",
+    "section": "Section",
+    "noAreas": "No areas requiring repair with current parameters",
+    "materialOptions": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Standard Gunite",
+      "highDensity": "High-Density",
+      "lowThermal": "Low-Thermal",
+          "material": "Material",
+    "density": "Density",
+    "section": "Section"
+    }
+  },
+  "gunite": {
+    "title": "GUNITE PROPOSAL VISUALIZATION",
+    "description": "Shows 3D visualization of repair areas and material requirements"
+  },
+  "analysis": {
+    "settingsTitle": "ANALYSIS SETTINGS",
+    "materialLabel": "Repair material:",
+    "distanceBetweenAreas": "Distance between areas:"
+  },
+    "warning": {
+    "noPoints": "No points are available for the selected screen \"{{screen}}\".",
+    "causes": "Possible causes",
+    "cause1": "Missing or mismatched \"section\" data in the CSV file.",
+    "cause2": "No points match the current furnace selection.",
+    "cause3": "Thickness data may not align with the wear threshold.",
+    "suggestion": "Please check the file \"{{file}}\" or adjust the settings."
+  },
+    "lidar": {
+    "noDataMessage": "No data available. Please select a file with LiDAR data."
+  },
+    "furnace": {
+    "selectLabel": "Select Furnace:"
+  },
+    "thickness": {
+    "lowWear": "Low Wear",
+    "highWear": "High Wear",
+    "title": "Furnace Lining Thickness"
+  }
+}

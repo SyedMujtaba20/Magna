@@ -1,39 +1,33 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import "./LanguageSelectionDialog.css";
 
 const LanguageSelectionDialog = ({ isOpen, onClose, onLanguageSelect, selectedLanguage }) => {
-  if (!isOpen) return null;
+  const [currentLang, setCurrentLang] = useState("en");
+
+  useEffect(() => {
+    const storedLang = localStorage.getItem("language") || "en";
+    setCurrentLang(storedLang);
+  }, []);
 
   const languages = [
-    {
-      code: "es",
-      name: "Español",
-      flag: "🇪🇸"
-    },
-    {
-      code: "en",
-      name: "English",
-      flag: "🇺🇸"
-    },
-    {
-      code: "fr",
-      name: "Français",
-      flag: "🇫🇷"
-    },
-    {
-      code: "de",
-      name: "Deutsch",
-      flag: "🇩🇪"
-    }
+    { code: "en", name: "English", flag: "🇺🇸" },
+    { code: "fr", name: "Français", flag: "🇫🇷" },
+    { code: "es", name: "Español", flag: "🇪🇸" },
+    { code: "de", name: "Deutsch", flag: "🇩🇪" },
+    { code: "pt", name: "Português", flag: "🇵🇹" }
   ];
 
   const handleLanguageClick = (language) => {
-    onLanguageSelect(language.name);
+    localStorage.setItem("language", language.code); // Save in localStorage
+    setCurrentLang(language.code);
+    onLanguageSelect(language.code); // Pass code not name
   };
 
   const handleAccept = () => {
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="language-dialog-overlay">
@@ -44,9 +38,7 @@ const LanguageSelectionDialog = ({ isOpen, onClose, onLanguageSelect, selectedLa
             <span className="language-icon">🌐</span>
             <span>Language Selection</span>
           </div>
-          <button className="language-dialog-close" onClick={onClose}>
-            ×
-          </button>
+          <button className="language-dialog-close" onClick={onClose}>×</button>
         </div>
 
         {/* Language Options */}
@@ -54,20 +46,11 @@ const LanguageSelectionDialog = ({ isOpen, onClose, onLanguageSelect, selectedLa
           {languages.map((language) => (
             <div
               key={language.code}
-              className={`language-option ${selectedLanguage === language.name ? 'selected' : ''}`}
+              className={`language-option ${currentLang === language.code ? 'selected' : ''}`}
               onClick={() => handleLanguageClick(language)}
             >
-              <div className="language-flag">
-                {language.flag}
-              </div>
-              <div className="language-name">
-                {language.name}
-              </div>
-              {selectedLanguage === language.name && (
-                <div className="language-indicator">
-                  <span className="red-arrow">↑</span>
-                </div>
-              )}
+              <div className="language-flag">{language.flag}</div>
+              <div className="language-name">{language.name}</div>
             </div>
           ))}
         </div>

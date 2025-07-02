@@ -1,0 +1,89 @@
+{
+  "about": {
+    "title": "À propos de VisioMAG",
+    "version": "Version 1.1.0",
+    "created": "Créé en juillet 2025",
+    "developedBy": "Développé par {{company}}"
+  },
+  "comparison": {
+    "instructions": "Sélectionnez deux coulées pour une comparaison en double vue. Le modèle sera affiché en couleurs neutres, tandis que la comparaison mettra en évidence les zones d'usure critiques en rouge vif pour une identification immédiate.",
+    "casting": "Coulée de comparaison :",
+    "template": "Modèle de référence :",
+    "dualViewTitle": "Vue de comparaison à deux fours",
+    "templateLabel": "Modèle",
+    "comparisonLabel": "Comparaison",
+    "wearAnalysis": "Analyse de l'usure",
+    "highWear": "Détection de forte usure",
+    "setupTitle": "Configuration de comparaison à deux fours",
+    "startDual": "Démarrer la comparaison double",
+    "selectCasting": "Sélectionnez la coulée de comparaison",
+    "selectTemplate": "Sélectionnez le modèle de référence",
+    "selectFurnace": "Veuillez sélectionner un four",
+      "measurementStats": "Statistiques de mesure :",
+       "criticalWarningTitle": "ATTENTION CRITIQUE REQUISE",
+    "criticalWarningDesc": "Les zones rouges indiquent une réduction sévère de l'épaisseur nécessitant une inspection immédiate et un remplacement potentiel.",
+        "backToSelection": "Retour à la sélection",
+    "backTo3D": "Retour à la vue 3D",
+        "analysisSettings": "PARAMÈTRES D'ANALYSE",
+            "repairMaterial": "Matériau de réparation :",
+                "materials": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Gunite standard",
+      "highDensity": "Haute densité",
+      "lowThermal": "Faible conductivité thermique"
+    },
+      "distanceBetweenAreas": "Distance entre les zones :",
+        "minAreaSize": "Taille minimale de la zone :"
+  },
+  "view": {
+    "controls": "Utilisez la souris pour faire pivoter • Faites défiler pour zoomer"
+  },
+    "units": {
+    "meters": "mètres",
+        "points": "points"
+  },
+  "common": {
+    "accept": "Accepter",
+      "total": "TOTAL"
+  },
+    "repair": {
+    "title": "PROPOSITION DE RÉPARATION",
+    "material": "Matériau",
+    "density": "Densité",
+    "section": "Section",
+     "noAreas": "Aucune zone nécessitant de réparation avec les paramètres actuels",
+       "materialOptions": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Gunite Standard",
+      "highDensity": "Haute densité",
+      "lowThermal": "Faible conductivité thermique",
+          "material": "Matériau",
+    "density": "Densité",
+    "section": "Section"
+    }
+  },
+    "gunite": {
+    "title": "VISUALISATION DE LA PROPOSITION DE GUNITAGE",
+     "description": "Affiche la visualisation 3D des zones à réparer et des besoins en matériaux"
+  },
+    "analysis": {
+    "settingsTitle": "PARAMÈTRES D'ANALYSE",
+    "distanceBetweenAreas": "Distance entre les zones :"
+  },
+    "lidar": {
+    "noDataMessage": "Aucune donnée disponible. Veuillez sélectionner un fichier contenant des données LiDAR."
+  },
+    "furnace": {
+    "selectLabel": "Sélectionnez le four :"
+  },
+    "thickness": {
+    "lowWear": "Usure faible",
+    "highWear": "Usure élevée",
+    "title": "Épaisseur du revêtement du four"
+  },
+  "report":{
+     "selectType": "Sélectionner le type de rapport",
+       "daily": "Rapport quotidien",
+    "campaign": "Rapport de campagne"
+  }
+}

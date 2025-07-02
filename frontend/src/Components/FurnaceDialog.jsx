@@ -124,7 +124,7 @@ const FurnaceDialog = ({ isOpen, onClose }) => {
   };
 
   if (!isOpen) return null;
-  return "";
+  // return "";
   return (
     <div className="dialog-overlay">
       <div className="dialog-box">

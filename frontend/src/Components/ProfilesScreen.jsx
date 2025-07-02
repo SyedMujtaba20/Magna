@@ -10,6 +10,7 @@ import {
 } from "./FurnaceDataUtils";
 import { setupThreeScene, updateThreeScene } from "./SceneSetup";
 import { getSliceData, drawSliceProfile } from "./SliceProfileUtils";
+import { useTranslation } from "react-i18next";
 import {
   handleMouseDown,
   handleMouseMove,
@@ -28,6 +29,12 @@ const ProfilesScreen = ({
   const [draggingLine, setDraggingLine] = useState(null);
   const [availableFurnaces, setAvailableFurnaces] = useState([]);
   const [selectedFurnace, setSelectedFurnace] = useState(null);
+  const { t } = useTranslation();
+
+   useEffect(() => {
+          const savedLang = localStorage.getItem("language") || "en";
+          i18n.changeLanguage(savedLang);
+        }, []);
 
   const canvasRef = useRef(null);
   const xSliceCanvasRef = useRef(null);
@@ -145,7 +152,8 @@ const ProfilesScreen = ({
             fontSize: "16px",
           }}
         >
-          No data available. Please select a file with LiDAR data.
+          {/* No data available. Please select a file with LiDAR data. */}
+          {t("lidar.noDataMessage")}
         </div>
       )}
 
@@ -162,7 +170,8 @@ const ProfilesScreen = ({
             }}
           >
             <label style={{ marginRight: "10px", fontWeight: "bold" }}>
-              Select Furnace:
+              {/* Select Furnace: */}
+              {t("furnace.selectLabel")}
             </label>
             <select
               value={selectedFurnace?.furnace_id || ""}
@@ -311,7 +320,7 @@ const ProfilesScreen = ({
               }}
             >
               {/* Color Legend */}
-              <div
+              {/* <div
                 style={{
                   height: "40px",
                   background:
@@ -333,7 +342,28 @@ const ProfilesScreen = ({
                   Furnace Lining Thickness
                 </span>
                 <span>High Wear: {dataBounds.maxY.toFixed(1)}</span>
-              </div>
+              </div> */}
+              <div
+  style={{
+    height: "40px",
+    background:
+      "linear-gradient(to right, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000)",
+    position: "relative",
+    borderBottom: "1px solid #ccc",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0 10px",
+    fontSize: "12px",
+    fontWeight: "bold",
+  }}
+>
+  <span>{t("thickness.lowWear")}: {dataBounds.minY.toFixed(1)}</span>
+  <span style={{ color: "white", textShadow: "1px 1px 2px black" }}>
+    {t("thickness.title")}
+  </span>
+  <span>{t("thickness.highWear")}: {dataBounds.maxY.toFixed(1)}</span>
+</div>
 
               {/* Y Profile (Vertical Slice) */}
               <div style={{ flex: 1, position: "relative", minHeight: 0 }}>

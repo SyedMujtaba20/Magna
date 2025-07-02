@@ -125,7 +125,8 @@ const HeaderComponent = () => {
 
           <div className="dropdown-container">
             <button onClick={() => setIsAboutDropdownOpen(!isAboutDropdownOpen)}>
-              About VisioMAG
+              {/* About VisioMAG */}
+              {t("about.title")}
             </button>
 
             {/* About VisioMAG Dropdown Menu */}

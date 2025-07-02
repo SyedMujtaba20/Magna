@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 const ControlPanels = ({
   activeScreen,
@@ -11,6 +12,12 @@ const ControlPanels = ({
   isUiDisabled,
   isProcessing,
 }) => {
+    const { t } = useTranslation();
+  
+    useEffect(() => {
+      const savedLang = localStorage.getItem("language") || "en";
+      i18n.changeLanguage(savedLang);
+    }, []);
   return (
     <div style={{ display: "flex", gap: "10px", minHeight: "40vh" }}>
       <div
@@ -32,7 +39,8 @@ const ControlPanels = ({
             color: "#333",
           }}
         >
-          {activeScreen.toUpperCase()} ANALYSIS SETTINGS
+          {activeScreen.toUpperCase()} {t("comparison.analysisSettings")}
+          {/* ANALYSIS SETTINGS */}
         </h3>
         <div style={{ marginBottom: "15px" }}>
           <label
@@ -44,7 +52,8 @@ const ControlPanels = ({
               color: "#333",
             }}
           >
-            Repair material:
+            {t("comparison.repairMaterial")}
+            {/* Repair material: */}
           </label>
           <select
             style={{
@@ -56,13 +65,28 @@ const ControlPanels = ({
               fontSize: "12px",
             }}
             value={parameters.repairMaterial}
-            onChange={(e) => handleParameterChange("repairMaterial", e.target.value)}
+            onChange={(e) =>
+              handleParameterChange("repairMaterial", e.target.value)
+            }
             disabled={isUiDisabled}
           >
-            <option value="Gunnimag C2">Gunnimag C2</option>
+            {/* <option value="Gunnimag C2">Gunnimag C2</option>
             <option value="Standard Gunite">Standard Gunite</option>
             <option value="High-Density">High-Density</option>
-            <option value="Low-Thermal">Low-Thermal</option>
+            <option value="Low-Thermal">Low-Thermal</option> */}
+
+            <option value="Gunnimag C2">
+              {t("comparison.materials.gunnimagC2")}
+            </option>
+            <option value="Standard Gunite">
+              {t("comparison.materials.standardGunite")}
+            </option>
+            <option value="High-Density">
+              {t("comparison.materials.highDensity")}
+            </option>
+            <option value="Low-Thermal">
+              {t("comparison.materials.lowThermal")}
+            </option>
           </select>
         </div>
         <div style={{ marginBottom: "15px" }}>
@@ -89,7 +113,9 @@ const ControlPanels = ({
                 fontSize: "12px",
               }}
               value={parameters.wearThreshold}
-              onChange={(e) => handleParameterChange("wearThreshold", Number(e.target.value))}
+              onChange={(e) =>
+                handleParameterChange("wearThreshold", Number(e.target.value))
+              }
               min="0"
               step="1"
               disabled={isUiDisabled || isProcessing}
@@ -139,7 +165,8 @@ const ControlPanels = ({
               color: "#333",
             }}
           >
-            Distance between areas:
+            {t("comparison.distanceBetweenAreas")}
+            {/* Distance between areas: */}
           </label>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <input
@@ -149,7 +176,12 @@ const ControlPanels = ({
               max="2.0"
               step="0.05"
               value={parameters.distanceBetweenAreas}
-              onChange={(e) => handleParameterChange("distanceBetweenAreas", Number(e.target.value))}
+              onChange={(e) =>
+                handleParameterChange(
+                  "distanceBetweenAreas",
+                  Number(e.target.value)
+                )
+              }
               disabled={isUiDisabled || isProcessing}
             />
             <input
@@ -163,13 +195,18 @@ const ControlPanels = ({
                 fontSize: "11px",
               }}
               value={parameters.distanceBetweenAreas}
-              onChange={(e) => handleParameterChange("distanceBetweenAreas", Number(e.target.value))}
+              onChange={(e) =>
+                handleParameterChange(
+                  "distanceBetweenAreas",
+                  Number(e.target.value)
+                )
+              }
               disabled={isUiDisabled || isProcessing}
               min="0.1"
               step="0.05"
             />
             <span style={{ fontSize: "11px", color: "#666", minWidth: "40px" }}>
-              meters
+              {t("units.meters")}
             </span>
           </div>
         </div>
@@ -183,7 +220,8 @@ const ControlPanels = ({
               color: "#333",
             }}
           >
-            Minimum area size:
+            {t("comparison.minAreaSize")}
+            {/* Minimum area size: */}
           </label>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <input
@@ -193,7 +231,9 @@ const ControlPanels = ({
               max="500"
               step="10"
               value={parameters.minimumAreaSize}
-              onChange={(e) => handleParameterChange("minimumAreaSize", Number(e.target.value))}
+              onChange={(e) =>
+                handleParameterChange("minimumAreaSize", Number(e.target.value))
+              }
               disabled={isUiDisabled || isProcessing}
             />
             <input
@@ -207,13 +247,17 @@ const ControlPanels = ({
                 fontSize: "11px",
               }}
               value={parameters.minimumAreaSize}
-              onChange={(e) => handleParameterChange("minimumAreaSize", Number(e.target.value))}
+              onChange={(e) =>
+                handleParameterChange("minimumAreaSize", Number(e.target.value))
+              }
               disabled={isUiDisabled || isProcessing}
               min="10"
               step="10"
             />
             <span style={{ fontSize: "12px", color: "#666", minWidth: "40px" }}>
-              points
+              {/* points
+               */}
+              {t("units.points")}
             </span>
           </div>
         </div>
@@ -235,7 +279,8 @@ const ControlPanels = ({
             alert("Parameters accepted successfully!");
           }}
         >
-          Accept
+          {/* Accept */}
+          {t("common.accept")}
         </button>
       </div>
       <div
@@ -256,16 +301,17 @@ const ControlPanels = ({
             color: "#333",
           }}
         >
-          REPAIR PROPOSAL
+          {t("repair.title")}
         </h3>
+
         <div style={{ fontSize: "12px", marginBottom: "10px", color: "#333" }}>
-          <strong>Material:</strong> {parameters.repairMaterial}
+          <strong>{t("repair.material")}:</strong> {parameters.repairMaterial}
         </div>
         <div style={{ fontSize: "12px", marginBottom: "10px", color: "#333" }}>
-          <strong>Density:</strong> {materialDensity} g/cm³
+          <strong>{t("repair.density")}:</strong> {materialDensity} g/cm³
         </div>
         <div style={{ fontSize: "12px", marginBottom: "20px", color: "#333" }}>
-          <strong>Section:</strong> {activeScreen}
+          <strong>{t("repair.section")}:</strong> {activeScreen}
         </div>
         <div
           style={{
@@ -289,7 +335,9 @@ const ControlPanels = ({
                 }}
               >
                 <span style={{ color: "#d32f2f" }}>Area {area.id}:</span>{" "}
-                {area.volume.toFixed(2)}m³ | {area.weight.toFixed(2)} Kg | {area.pointCount} points | Avg Wear: {area.avgWear.toFixed(2)} cm
+                {area.volume.toFixed(2)}m³ | {area.weight.toFixed(2)} Kg |{" "}
+                {area.pointCount} points | Avg Wear: {area.avgWear.toFixed(2)}{" "}
+                cm
               </div>
             ))
           ) : (
@@ -302,7 +350,8 @@ const ControlPanels = ({
                 padding: "20px 0",
               }}
             >
-              No areas requiring repair with current parameters
+              {t("repair.noAreas")}
+              {/* No areas requiring repair with current parameters */}
             </div>
           )}
           <div
@@ -315,9 +364,11 @@ const ControlPanels = ({
               color: "#333",
             }}
           >
-            <strong>TOTAL:</strong>{" "}
+            {/* <strong>TOTAL:</strong>{" "} */}
+            <strong>{t("common.total")}:</strong>{" "}
             <span style={{ color: "#d32f2f" }}>
-              {repairProposal.total.volume.toFixed(2)}m³ | {repairProposal.total.weight.toFixed(2)} Kg
+              {repairProposal.total.volume.toFixed(2)}m³ |{" "}
+              {repairProposal.total.weight.toFixed(2)} Kg
             </span>
           </div>
         </div>

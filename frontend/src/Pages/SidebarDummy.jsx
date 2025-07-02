@@ -24,6 +24,7 @@ const Sidebar = ({
   alarmState,
   selectedFile,
   onScreenChange,
+    onCreateReportClick,
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeScreen, setActiveScreen] = useState("3DView");
@@ -210,7 +211,7 @@ const Sidebar = ({
           <div>
             <h3 className="section-title">Actions</h3>
             <div className="button-group">
-              <button className="btn" disabled={buttonStates.action.disabled}>
+              <button className="btn" onClick={onCreateReportClick}  disabled={buttonStates.action.disabled}>
                 <FileText size={16} /> Create Report
               </button>
               <button className="btn" disabled={buttonStates.action.disabled}>

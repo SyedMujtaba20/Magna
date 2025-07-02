@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { getColorForThickness } from "./utils";
 import { useTranslation } from "react-i18next";
+import i18n from 'i18next';
 
 const ComparisonScreen = ({
   files,

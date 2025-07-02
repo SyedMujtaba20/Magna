@@ -11,6 +11,7 @@ import {
 import { setupThreeScene, updateThreeScene } from "./SceneSetup";
 import { getSliceData, drawSliceProfile } from "./SliceProfileUtils";
 import { useTranslation } from "react-i18next";
+import i18n from 'i18next';
 import {
   handleMouseDown,
   handleMouseMove,

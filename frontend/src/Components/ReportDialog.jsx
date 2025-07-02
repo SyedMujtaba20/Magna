@@ -1,6 +1,7 @@
 import React from "react";
 import "./ReportDialog.css";
 import { useTranslation } from "react-i18next";
+import i18n from 'i18next';
 
 const ReportDialog = ({ isOpen, onClose, onDailyReport, onCampaignReport }) => {
   if (!isOpen) return null;

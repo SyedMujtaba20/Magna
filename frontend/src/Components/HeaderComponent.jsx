@@ -8,6 +8,8 @@ import AboutVisioMAG from "./AboutVisioMAG";
 import PLCAccessControl from "./PLCAccessControl";
 import SettingsDialog from "./SettingsDialog";
 import LanguageSelectionDialog from "./LanguageSelectionDialog";
+import { useTranslation } from "react-i18next";
+import i18n from 'i18next';
 
 const HeaderComponent = () => {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -19,6 +21,12 @@ const HeaderComponent = () => {
   const [isLanguageSelectionOpen, setIsLanguageSelectionOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedLanguage, setSelectedLanguage] = useState("English");
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem("language") || "en";
+    i18n.changeLanguage(savedLang);
+  }, []);
 
   // Settings dropdown items
   const settingsDropdownItems = [
@@ -124,7 +132,9 @@ const HeaderComponent = () => {
           </div>
 
           <div className="dropdown-container">
-            <button onClick={() => setIsAboutDropdownOpen(!isAboutDropdownOpen)}>
+            <button
+              onClick={() => setIsAboutDropdownOpen(!isAboutDropdownOpen)}
+            >
               {/* About VisioMAG */}
               {t("about.title")}
             </button>
@@ -195,7 +205,10 @@ const HeaderComponent = () => {
       />
       <AboutVisioMAG isOpen={isAboutOpen} onClose={closeAbout} />
       <PLCAccessControl isOpen={isPLCAccessOpen} onClose={closePLCAccess} />
-      <SettingsDialog isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
       <LanguageSelectionDialog
         isOpen={isLanguageSelectionOpen}
         onClose={closeLanguageSelection}

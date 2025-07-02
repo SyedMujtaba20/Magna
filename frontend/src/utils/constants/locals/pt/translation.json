@@ -1,1 +1,175 @@
-{}
+{
+  "about": {
+    "title": "Sobre o VisioMAG",
+    "version": "Versão 1.1.0",
+    "created": "Criado em julho de 2025",
+    "developedBy": "Desenvolvido por {{company}}"
+  },
+  "comparison": {
+    "instructions": "Selecione duas corridas para uma comparação em visualização dupla. O modelo será exibido em cores neutras, enquanto a comparação destacará as áreas críticas de desgaste em vermelho intenso para identificação imediata.",
+    "casting": "Corrida de comparação:",
+    "template": "Modelo de referência:",
+    "dualViewTitle": "Visualização de Comparação de Dois Fornos",
+    "templateLabel": "Modelo",
+    "comparisonLabel": "Comparação",
+    "wearAnalysis": "Análise de desgaste",
+    "highWear": "Detecção de desgaste severo",
+    "setupTitle": "Configuração de comparação de dois fornos",
+    "startDual": "Iniciar comparação dupla",
+    "selectCasting": "Selecione a corrida de comparação",
+    "selectTemplate": "Selecione o modelo de referência",
+    "selectFurnace": "Por favor, selecione um forno",
+    "measurementStats": "Estatísticas de medição:",
+    "criticalWarningTitle": "ATENÇÃO CRÍTICA NECESSÁRIA",
+    "criticalWarningDesc": "As áreas vermelhas indicam uma redução severa da espessura, exigindo inspeção imediata e possível substituição.",
+    "backToSelection": "Voltar à seleção",
+    "backTo3D": "Voltar à visualização 3D",
+    "analysisSettings": "CONFIGURAÇÕES DE ANÁLISE",
+    "repairMaterial": "Material de reparo:",
+    "materials": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Gunite padrão",
+      "highDensity": "Alta densidade",
+      "lowThermal": "Baixa condutividade térmica"
+    },
+    "distanceBetweenAreas": "Distância entre áreas:",
+    "minAreaSize": "Tamanho mínimo da área:"
+  },
+  "view": {
+    "controls": "Use o mouse para girar • Role para ampliar",
+    "controls1": "Arraste para girar, role para ampliar"
+  },
+  "units": {
+    "meters": "metros",
+    "points": "pontos"
+  },
+  "common": {
+    "accept": "Aceitar",
+    "total": "TOTAL",
+    "settings": "Configurações...",
+    "initializing": "Inicializando...",
+    "clear": "Limpar",
+    "selectFolder": "Selecionar pasta",
+    "selectFile": "Selecionar arquivo",
+    "start": "Iniciar",
+    "template": "Modelo",
+    "resetAlarm": "Redefinir alarme",
+    "stop": "Parar",
+    "reset": "Redefinir"
+  },
+  "repair": {
+    "title": "PROPOSTA DE REPARO",
+    "material": "Material",
+    "density": "Densidade",
+    "section": "Seção",
+    "noAreas": "Nenhuma área requer reparo com os parâmetros atuais",
+    "materialOptions": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Gunite Padrão",
+      "highDensity": "Alta densidade",
+      "lowThermal": "Baixa condutividade térmica",
+      "material": "Material",
+      "density": "Densidade",
+      "section": "Seção"
+    }
+  },
+  "gunite": {
+    "title": "VISUALIZAÇÃO DA PROPOSTA DE GUNITAGEM",
+    "description": "Mostra a visualização 3D das áreas de reparo e necessidades de material"
+  },
+  "analysis": {
+    "settingsTitle": "CONFIGURAÇÕES DE ANÁLISE",
+    "distanceBetweenAreas": "Distância entre áreas:",
+    "points": "Pontos: {{count}}",
+    "files": "Arquivos: {{count}}",
+    "zones": "Zonas: Teto, Linha de escória, Barriga, Tijolos iniciais, Fundo",
+    "profiles": "Perfis",
+    "instructions": "Clique nas células da grade ou nos pontos para visualizar a espessura em todos os arquivos",
+    "debug": "Depuração: {{value}}",
+    "materialLabel": "Material de reparo:"
+  },
+  "lidar": {
+    "noDataMessage": "Nenhum dado disponível. Por favor, selecione um arquivo com dados LiDAR.",
+    "selectFolder": "Selecione uma pasta para carregar dados LiDAR"
+  },
+  "furnace": {
+    "selectLabel": "Selecione o forno:"
+  },
+  "thickness": {
+    "lowWear": "Desgaste leve",
+    "highWear": "Desgaste severo",
+    "title": "Espessura do revestimento do forno",
+    "noData": "Nenhum dado de espessura encontrado para {{zone}} | {{profile}} em nenhum dos {{count}} arquivos.",
+    "possibleCauses": "Possíveis causas: formato de dados incorreto ou dados ausentes nos arquivos CSV.",
+    "filesWithData": "Arquivos com dados",
+    "range": "Faixa de espessura",
+    "selectFilePrompt": "Por favor, selecione um arquivo para visualizar os dados de espessura."
+  },
+  "report": {
+    "title": "Relatório de campanha",
+    "start": "Início da campanha",
+    "duration": "Duração: {{days}} dias",
+    "areaTitle": "{{area}} - Espessura média durante a campanha",
+    "selectType": "Selecionar tipo de relatório",
+    "daily": "Relatório diário",
+    "campaign": "Relatório de campanha",
+    "create": "Criar relatório",
+    "downloadImages": "Baixar imagens"
+  },
+  "visual": {
+    "globalScaling": "Escala global"
+  },
+  "user": {
+    "profileTitle": "Perfil do usuário",
+    "profileLabel": "Perfil do usuário",
+    "roles": {
+      "supervisor": "Supervisor",
+      "operator": "Operador"
+    },
+    "password": "Senha"
+  },
+  "session": {
+    "durationPrefix": "(duração da sessão",
+    "durationValue": "{{minutes}} minutos)"
+  },
+  "reconstruction": {
+    "progress": "Reconstrução em andamento: {{progress}}%"
+  },
+  "template": {
+    "confirmSet": "Deseja definir \"{{file}}\" como o novo modelo?"
+  },
+  "screens": {
+    "3dView": "Visualização 3D",
+    "thicknesses": "Espessuras",
+    "profiles": "Perfis",
+    "comparison": "Comparação",
+    "gunning": "Gunitagem"
+  },
+  "robot": {
+    "label": "Robô",
+    "variator": "Variador"
+  },
+  "measurementInfo": {
+    "title": "Informações de medição",
+    "campaign": "Campanha",
+    "casts": "Número de corridas",
+    "date": "Data",
+    "template": "Modelo"
+  },
+  "section": {
+    "screens": "Telas"
+  },
+  "settings": {
+    "title": "Configurações"
+  },
+  "warning": {
+    "noPoints": "Nenhum ponto disponível para a tela selecionada \"{{screen}}\".",
+    "causes": "Possíveis causas",
+    "cause1": "Dados de \"seção\" ausentes ou incompatíveis no arquivo CSV.",
+    "cause2": "Nenhum ponto corresponde à seleção atual do forno.",
+    "cause3": "Os dados de espessura podem não corresponder ao limite de desgaste.",
+    "suggestion": "Verifique o arquivo \"{{file}}\" ou ajuste as configurações."
+  },
+  "cycle": "Ciclo",
+  "actions": "Ações"
+}

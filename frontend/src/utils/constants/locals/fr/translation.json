@@ -19,71 +19,158 @@
     "selectCasting": "Sélectionnez la coulée de comparaison",
     "selectTemplate": "Sélectionnez le modèle de référence",
     "selectFurnace": "Veuillez sélectionner un four",
-      "measurementStats": "Statistiques de mesure :",
-       "criticalWarningTitle": "ATTENTION CRITIQUE REQUISE",
+    "measurementStats": "Statistiques de mesure :",
+    "criticalWarningTitle": "ATTENTION CRITIQUE REQUISE",
     "criticalWarningDesc": "Les zones rouges indiquent une réduction sévère de l'épaisseur nécessitant une inspection immédiate et un remplacement potentiel.",
-        "backToSelection": "Retour à la sélection",
+    "backToSelection": "Retour à la sélection",
     "backTo3D": "Retour à la vue 3D",
-        "analysisSettings": "PARAMÈTRES D'ANALYSE",
-            "repairMaterial": "Matériau de réparation :",
-                "materials": {
+    "analysisSettings": "PARAMÈTRES D'ANALYSE",
+    "repairMaterial": "Matériau de réparation :",
+    "materials": {
       "gunnimagC2": "Gunnimag C2",
       "standardGunite": "Gunite standard",
       "highDensity": "Haute densité",
       "lowThermal": "Faible conductivité thermique"
     },
-      "distanceBetweenAreas": "Distance entre les zones :",
-        "minAreaSize": "Taille minimale de la zone :"
+    "distanceBetweenAreas": "Distance entre les zones :",
+    "minAreaSize": "Taille minimale de la zone :"
   },
   "view": {
-    "controls": "Utilisez la souris pour faire pivoter • Faites défiler pour zoomer"
+    "controls": "Utilisez la souris pour faire pivoter • Faites défiler pour zoomer",
+    "controls1": "Faites glisser pour faire pivoter, faites défiler pour zoomer"
   },
-    "units": {
+  "units": {
     "meters": "mètres",
-        "points": "points"
+    "points": "points"
   },
   "common": {
     "accept": "Accepter",
-      "total": "TOTAL"
+    "total": "TOTAL",
+    "settings": "Paramètres...",
+    "initializing": "Initialisation...",
+    "clear": "Effacer",
+    "selectFolder": "Sélectionner un dossier",
+    "selectFile": "Sélectionner un fichier",
+    "start": "Démarrer",
+    "template": "Modèle",
+    "resetAlarm": "Réinitialiser l'alarme",
+    "stop": "Arrêter",
+    "reset": "Réinitialiser"
   },
-    "repair": {
+  "repair": {
     "title": "PROPOSITION DE RÉPARATION",
     "material": "Matériau",
     "density": "Densité",
     "section": "Section",
-     "noAreas": "Aucune zone nécessitant de réparation avec les paramètres actuels",
-       "materialOptions": {
+    "noAreas": "Aucune zone nécessitant de réparation avec les paramètres actuels",
+    "materialOptions": {
       "gunnimagC2": "Gunnimag C2",
       "standardGunite": "Gunite Standard",
       "highDensity": "Haute densité",
       "lowThermal": "Faible conductivité thermique",
-          "material": "Matériau",
-    "density": "Densité",
-    "section": "Section"
+      "material": "Matériau",
+      "density": "Densité",
+      "section": "Section"
     }
   },
-    "gunite": {
+  "gunite": {
     "title": "VISUALISATION DE LA PROPOSITION DE GUNITAGE",
-     "description": "Affiche la visualisation 3D des zones à réparer et des besoins en matériaux"
+    "description": "Affiche la visualisation 3D des zones à réparer et des besoins en matériaux"
   },
-    "analysis": {
+  "analysis": {
     "settingsTitle": "PARAMÈTRES D'ANALYSE",
-    "distanceBetweenAreas": "Distance entre les zones :"
+    "distanceBetweenAreas": "Distance entre les zones :",
+    "points": "Points : {{count}}",
+    "files": "Fichiers : {{count}}",
+    "zones": "Zones : Toit, Ligne de laitier, Ventre, Briques initiales, Fond",
+    "profiles": "Profils",
+    "instructions": "Cliquez sur les cellules de la grille ou les points pour voir l'épaisseur dans tous les fichiers",
+    "debug": "Débogage : {{value}}",
+    "materialLabel": "Matériau de réparation :"
+
   },
-    "lidar": {
-    "noDataMessage": "Aucune donnée disponible. Veuillez sélectionner un fichier contenant des données LiDAR."
+  "lidar": {
+    "noDataMessage": "Aucune donnée disponible. Veuillez sélectionner un fichier contenant des données LiDAR.",
+    "selectFolder": "Sélectionnez un dossier pour charger les données LiDAR"
   },
-    "furnace": {
+  "furnace": {
     "selectLabel": "Sélectionnez le four :"
   },
-    "thickness": {
+  "thickness": {
     "lowWear": "Usure faible",
     "highWear": "Usure élevée",
-    "title": "Épaisseur du revêtement du four"
+    "title": "Épaisseur du revêtement du four",
+    "noData": "Aucune donnée d'épaisseur trouvée pour {{zone}} | {{profile}} dans aucun des {{count}} fichiers.",
+    "possibleCauses": "Causes possibles : format de données incorrect ou données manquantes dans les fichiers CSV.",
+    "filesWithData": "Fichiers avec des données",
+    "range": "Plage d'épaisseur",
+    "selectFilePrompt": "Veuillez sélectionner un fichier pour visualiser les données d'épaisseur."
   },
-  "report":{
-     "selectType": "Sélectionner le type de rapport",
-       "daily": "Rapport quotidien",
-    "campaign": "Rapport de campagne"
-  }
+  "report": {
+    "title": "Rapport de campagne",
+    "start": "Début de la campagne",
+    "duration": "Durée : {{days}} jours",
+    "areaTitle": "{{area}} - Épaisseur moyenne pendant la campagne",
+    "selectType": "Sélectionner le type de rapport",
+    "daily": "Rapport quotidien",
+    "campaign": "Rapport de campagne",
+    "create": "Créer un rapport",
+    "downloadImages": "Télécharger les images"
+  },
+  "visual": {
+    "globalScaling": "Mise à l'échelle globale"
+  },
+  "user": {
+    "profileTitle": "Profil utilisateur",
+    "profileLabel": "Profil utilisateur",
+    "roles": {
+      "supervisor": "Superviseur",
+      "operator": "Opérateur"
+    },
+    "password": "Mot de passe"
+  },
+  "session": {
+    "durationPrefix": "(durée de la session",
+    "durationValue": "{{minutes}} minutes)"
+  },
+  "reconstruction": {
+    "progress": "Reconstruction en cours : {{progress}} %"
+  },
+  "template": {
+    "confirmSet": "Voulez-vous définir « {{file}} » comme nouveau modèle ?"
+  },
+  "screens": {
+    "3dView": "Vue 3D",
+    "thicknesses": "Épaisseurs",
+    "profiles": "Profils",
+    "comparison": "Comparaison",
+    "gunning": "Projection"
+  },
+  "robot": {
+    "label": "Robot",
+    "variator": "Variateur"
+  },
+  "measurementInfo": {
+    "title": "Informations de mesure",
+    "campaign": "Campagne",
+    "casts": "Nombre de coulées",
+    "date": "Date",
+    "template": "Modèle"
+  },
+  "section": {
+    "screens": "Écrans"
+  },
+  "settings": {
+    "title": "Paramètres"
+  },
+  "warning": {
+  "noPoints": "Aucun point n'est disponible pour l'écran sélectionné \"{{screen}}\".",
+  "causes": "Causes possibles",
+  "cause1": "Données \"section\" manquantes ou incompatibles dans le fichier CSV.",
+  "cause2": "Aucun point ne correspond à la sélection actuelle du four.",
+  "cause3": "Les données d'épaisseur peuvent ne pas correspondre au seuil d'usure.",
+  "suggestion": "Veuillez vérifier le fichier \"{{file}}\" ou ajuster les paramètres."
+},
+  "cycle": "Cycle",
+  "actions": "Actions"
 }

@@ -11,8 +11,10 @@
     "duration": "Duration: {{days}} days",
     "areaTitle": "{{area}} - Avg. Thickness Over Campaign",
     "selectType": "Select Report Type",
-      "daily": "Daily Report",
-    "campaign": "Campaign Report"
+    "daily": "Daily Report",
+    "campaign": "Campaign Report",
+    "create": "Create Report",
+    "downloadImages": "Download Images"
   },
   "comparison": {
     "instructions": "Select two castings for dual-view comparison. The template will be displayed in neutral colors, while the comparison will highlight critical wear areas in bright red for immediate identification.",
@@ -45,7 +47,8 @@
     "minAreaSize": "Minimum area size:"
   },
   "view": {
-    "controls": "Use mouse to rotate • Scroll to zoom"
+    "controls": "Use mouse to rotate • Scroll to zoom",
+    "controls1": "Drag to rotate, scroll to zoom"
   },
   "units": {
     "meters": "meters",
@@ -53,7 +56,17 @@
   },
   "common": {
     "accept": "Accept",
-    "total": "TOTAL"
+    "total": "TOTAL",
+    "settings": "Settings...",
+    "initializing": "Initializing...",
+    "clear": "Clear",
+    "selectFolder": "Select Folder",
+    "selectFile": "Select File",
+    "start": "Start",
+    "template": "Template",
+    "resetAlarm": "Reset Alarm",
+    "stop": "Stop",
+    "reset": "Reset"
   },
   "repair": {
     "title": "REPAIR PROPOSAL",
@@ -66,9 +79,9 @@
       "standardGunite": "Standard Gunite",
       "highDensity": "High-Density",
       "lowThermal": "Low-Thermal",
-          "material": "Material",
-    "density": "Density",
-    "section": "Section"
+      "material": "Material",
+      "density": "Density",
+      "section": "Section"
     }
   },
   "gunite": {
@@ -78,9 +91,15 @@
   "analysis": {
     "settingsTitle": "ANALYSIS SETTINGS",
     "materialLabel": "Repair material:",
-    "distanceBetweenAreas": "Distance between areas:"
+    "distanceBetweenAreas": "Distance between areas:",
+    "points": "Points: {{count}}",
+    "files": "Files: {{count}}",
+    "zones": "Zones: Roof, SlagLine, Belly, InitialBricks, Bottom",
+    "profiles": "Profiles",
+    "instructions": "Click grid cells or points to view thickness across all files",
+    "debug": "Debug: {{value}}"
   },
-    "warning": {
+  "warning": {
     "noPoints": "No points are available for the selected screen \"{{screen}}\".",
     "causes": "Possible causes",
     "cause1": "Missing or mismatched \"section\" data in the CSV file.",
@@ -88,15 +107,69 @@
     "cause3": "Thickness data may not align with the wear threshold.",
     "suggestion": "Please check the file \"{{file}}\" or adjust the settings."
   },
-    "lidar": {
-    "noDataMessage": "No data available. Please select a file with LiDAR data."
+  "lidar": {
+    "noDataMessage": "No data available. Please select a file with LiDAR data.",
+    "selectFolder": "Select a folder to load LiDAR data"
   },
-    "furnace": {
+  "furnace": {
     "selectLabel": "Select Furnace:"
   },
-    "thickness": {
+  "thickness": {
     "lowWear": "Low Wear",
     "highWear": "High Wear",
-    "title": "Furnace Lining Thickness"
-  }
+    "title": "Furnace Lining Thickness",
+    "noData": "No thickness data found for {{zone}} | {{profile}} in any of the {{count}} files.",
+    "possibleCauses": "Possible causes: Incorrect data format or missing data in CSV files.",
+    "filesWithData": "Files with data",
+    "range": "Thickness Range",
+    "selectFilePrompt": "Please select a file to visualize thickness data."
+  },
+  "visual": {
+    "globalScaling": "Global Scaling"
+  },
+  "user": {
+    "profileTitle": "User Profile",
+    "profileLabel": "User Profile",
+    "roles": {
+      "supervisor": "Supervisor",
+      "operator": "Operator"
+    },
+    "password": "Password"
+  },
+  "session": {
+    "durationPrefix": "(session duration",
+    "durationValue": "{{minutes}} minutes)"
+  },
+  "reconstruction": {
+    "progress": "Reconstruction in progress: {{progress}}%"
+  },
+  "template": {
+    "confirmSet": "Do you want to set \"{{file}}\" as the new template?"
+  },
+  "screens": {
+    "3dView": "3D View",
+    "thicknesses": "Thicknesses",
+    "profiles": "Profiles",
+    "comparison": "Comparison",
+    "gunning": "Gunning"
+  },
+  "robot": {
+    "label": "Robot",
+    "variator": "Variator"
+  },
+  "measurementInfo": {
+    "title": "Measurement Info",
+    "campaign": "Campaign",
+    "casts": "No. of Casts",
+    "date": "Date",
+    "template": "Template"
+  },
+  "section": {
+    "screens": "Screens"
+  },
+  "settings": {
+    "title": "Settings"
+  },
+  "cycle": "Cycle",
+  "actions": "Actions"
 }

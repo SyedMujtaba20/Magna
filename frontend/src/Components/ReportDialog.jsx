@@ -1,16 +1,16 @@
 import React from "react";
 import "./ReportDialog.css";
 import { useTranslation } from "react-i18next";
-import i18n from 'i18next';
+import i18n from "i18next";
 
 const ReportDialog = ({ isOpen, onClose, onDailyReport, onCampaignReport }) => {
   if (!isOpen) return null;
-       const { t } = useTranslation();
-      
-        useEffect(() => {
-          const savedLang = localStorage.getItem("language") || "en";
-          i18n.changeLanguage(savedLang);
-        }, []);
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    const savedLang = localStorage.getItem("language") || "en";
+    i18n.changeLanguage(savedLang);
+  }, []);
 
   return (
     <div className="report-dialog-overlay">
@@ -37,11 +37,11 @@ const ReportDialog = ({ isOpen, onClose, onDailyReport, onCampaignReport }) => {
               📊 Campaign Report
             </button> */}
             <button className="report-btn" onClick={onDailyReport}>
-  📅 {t("report.daily")}
-</button>
-<button className="report-btn" onClick={onCampaignReport}>
-  📊 {t("report.campaign")}
-</button>
+              📅 {t("report.daily")}
+            </button>
+            <button className="report-btn" onClick={onCampaignReport}>
+              📊 {t("report.campaign")}
+            </button>
           </div>
         </div>
       </div>

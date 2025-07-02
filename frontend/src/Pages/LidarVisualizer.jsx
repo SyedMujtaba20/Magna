@@ -1,4 +1,11 @@
-import React, { useState, useRef, useCallback, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  useEffect,
+  useContext,
+} from "react";
 import { ZoomIn, ZoomOut } from "lucide-react";
 import Sidebar from "./SidebarDummy";
 import GradientScale from "../Components/GradientScale";
@@ -15,6 +22,9 @@ import useFileProcessing from "../Components/useFileProcessing";
 import useControls from "../Components/useControls";
 import styles from "./LidarStyles";
 import ReportDialog from "../Components/ReportDialog";
+import { useTranslation } from "react-i18next";
+import i18n from "i18next";
+import { LanguageContext } from "../Components/LanguageContext";
 
 // Memoized zoom button styles to prevent recreation
 const zoomButtonStyle = {
@@ -79,6 +89,12 @@ const LidarVisualizer = () => {
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
   const previewCanvasRefs = useRef(new Map());
+  const { language } = useContext(LanguageContext);
+  const { t } = useTranslation();
+
+  useEffect(() => {
+    i18n.changeLanguage(language);
+  }, [language]);
 
   const { mainCanvasRef, containerRef, zoomIn, zoomOut } =
     useControls(isUiDisabled);
@@ -334,7 +350,11 @@ const LidarVisualizer = () => {
       !selectedFile && files.length === 0 ? (
         <div style={styles.noFileMessage}>
           <div style={{ marginBottom: "10px", fontSize: "18px" }}>📁</div>
-          <div>Select a folder to load LiDAR data</div>
+          <div>
+            {t("lidar.selectFolder")}
+            {/* 
+            Select a folder to load LiDAR data */}
+          </div>
         </div>
       ) : null,
     [selectedFile, files.length]

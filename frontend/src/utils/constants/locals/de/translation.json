@@ -1,1 +1,175 @@
-{}
+{
+  "about": {
+    "title": "Über VisioMAG",
+    "version": "Version 1.1.0",
+    "created": "Erstellt im Juli 2025",
+    "developedBy": "Entwickelt von {{company}}"
+  },
+  "report": {
+    "title": "Kampagnenbericht",
+    "start": "Kampagnenstart",
+    "duration": "Dauer: {{days}} Tage",
+    "areaTitle": "{{area}} - Durchschnittliche Dicke während der Kampagne",
+    "selectType": "Berichtstyp auswählen",
+    "daily": "Tagesbericht",
+    "campaign": "Kampagnenbericht",
+    "create": "Bericht erstellen",
+    "downloadImages": "Bilder herunterladen"
+  },
+  "comparison": {
+    "instructions": "Wählen Sie zwei Gießvorgänge für den Vergleich in der Doppelansicht. Die Vorlage wird in neutralen Farben angezeigt, während der Vergleich kritische Abnutzungsbereiche in leuchtendem Rot hervorhebt.",
+    "casting": "Vergleichs-Gießvorgang:",
+    "template": "Referenzvorlage:",
+    "dualViewTitle": "Vergleichsansicht für zwei Öfen",
+    "templateLabel": "Vorlage",
+    "comparisonLabel": "Vergleich",
+    "wearAnalysis": "Abnutzungsanalyse",
+    "highWear": "Starke Abnutzungserkennung",
+    "setupTitle": "Zwei-Ofen-Vergleichseinrichtung",
+    "startDual": "Doppelvergleich starten",
+    "selectCasting": "Vergleichs-Gießvorgang auswählen",
+    "selectTemplate": "Referenzvorlage auswählen",
+    "selectFurnace": "Bitte wählen Sie einen Ofen aus",
+    "measurementStats": "Messstatistiken:",
+    "criticalWarningTitle": "KRITISCHE AUFMERKSAMKEIT ERFORDERLICH",
+    "criticalWarningDesc": "Rote Bereiche zeigen eine starke Dickenreduzierung an, die eine sofortige Inspektion und möglicherweise einen Austausch erfordert.",
+    "backToSelection": "Zurück zur Auswahl",
+    "backTo3D": "Zurück zur 3D-Ansicht",
+    "analysisSettings": "ANALYSEEINSTELLUNGEN",
+    "repairMaterial": "Reparaturmaterial:",
+    "materials": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Standard-Gunite",
+      "highDensity": "Hochdichte",
+      "lowThermal": "Niedrige Wärmeleitfähigkeit"
+    },
+    "distanceBetweenAreas": "Abstand zwischen Bereichen:",
+    "minAreaSize": "Mindestbereichsgröße:"
+  },
+  "view": {
+    "controls": "Mit der Maus drehen • Zum Zoomen scrollen",
+    "controls1": "Ziehen zum Drehen, Scrollen zum Zoomen"
+  },
+  "units": {
+    "meters": "Meter",
+    "points": "Punkte"
+  },
+  "common": {
+    "accept": "Akzeptieren",
+    "total": "GESAMT",
+    "settings": "Einstellungen...",
+    "initializing": "Initialisierung...",
+    "clear": "Löschen",
+    "selectFolder": "Ordner auswählen",
+    "selectFile": "Datei auswählen",
+    "start": "Starten",
+    "template": "Vorlage",
+    "resetAlarm": "Alarm zurücksetzen",
+    "stop": "Stopp",
+    "reset": "Zurücksetzen"
+  },
+  "repair": {
+    "title": "REPARATURVORSCHLAG",
+    "material": "Material",
+    "density": "Dichte",
+    "section": "Abschnitt",
+    "noAreas": "Keine Bereiche erfordern eine Reparatur mit den aktuellen Parametern",
+    "materialOptions": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Standard-Gunite",
+      "highDensity": "Hochdichte",
+      "lowThermal": "Niedrige Wärmeleitfähigkeit",
+      "material": "Material",
+      "density": "Dichte",
+      "section": "Abschnitt"
+    }
+  },
+  "gunite": {
+    "title": "VISUALISIERUNG DES GUNITAGEVORSCHLAGS",
+    "description": "Zeigt 3D-Visualisierung der Reparaturbereiche und Materialanforderungen"
+  },
+  "analysis": {
+    "settingsTitle": "ANALYSEEINSTELLUNGEN",
+    "materialLabel": "Reparaturmaterial:",
+    "distanceBetweenAreas": "Abstand zwischen Bereichen:",
+    "points": "Punkte: {{count}}",
+    "files": "Dateien: {{count}}",
+    "zones": "Zonen: Dach, Schlackelinie, Bauch, Anfangsziegel, Boden",
+    "profiles": "Profile",
+    "instructions": "Klicken Sie auf Rasterzellen oder Punkte, um die Dicke in allen Dateien anzuzeigen",
+    "debug": "Debug: {{value}}"
+  },
+  "warning": {
+    "noPoints": "Für den ausgewählten Bildschirm \"{{screen}}\" sind keine Punkte verfügbar.",
+    "causes": "Mögliche Ursachen",
+    "cause1": "Fehlende oder nicht übereinstimmende \"Abschnitt\"-Daten in der CSV-Datei.",
+    "cause2": "Keine Punkte stimmen mit der aktuellen Ofenauswahl überein.",
+    "cause3": "Daten stimmen möglicherweise nicht mit dem Verschleißgrenzwert überein.",
+    "suggestion": "Bitte überprüfen Sie die Datei \"{{file}}\" oder passen Sie die Einstellungen an."
+  },
+  "lidar": {
+    "noDataMessage": "Keine Daten verfügbar. Bitte wählen Sie eine Datei mit LiDAR-Daten aus.",
+    "selectFolder": "Wählen Sie einen Ordner zum Laden der LiDAR-Daten"
+  },
+  "furnace": {
+    "selectLabel": "Ofen auswählen:"
+  },
+  "thickness": {
+    "lowWear": "Geringer Verschleiß",
+    "highWear": "Starker Verschleiß",
+    "title": "Ausmauerungsdicke des Ofens",
+    "noData": "Keine Dickendaten für {{zone}} | {{profile}} in einer der {{count}} Dateien gefunden.",
+    "possibleCauses": "Mögliche Ursachen: Falsches Datenformat oder fehlende Daten in CSV-Dateien.",
+    "filesWithData": "Dateien mit Daten",
+    "range": "Dickenbereich",
+    "selectFilePrompt": "Bitte wählen Sie eine Datei, um Dickendaten anzuzeigen."
+  },
+  "visual": {
+    "globalScaling": "Globale Skalierung"
+  },
+  "user": {
+    "profileTitle": "Benutzerprofil",
+    "profileLabel": "Benutzerprofil",
+    "roles": {
+      "supervisor": "Aufseher",
+      "operator": "Bediener"
+    },
+    "password": "Passwort"
+  },
+  "session": {
+    "durationPrefix": "(Sitzungsdauer",
+    "durationValue": "{{minutes}} Minuten)"
+  },
+  "reconstruction": {
+    "progress": "Rekonstruktion läuft: {{progress}}%"
+  },
+  "template": {
+    "confirmSet": "Möchten Sie \"{{file}}\" als neue Vorlage festlegen?"
+  },
+  "screens": {
+    "3dView": "3D-Ansicht",
+    "thicknesses": "Dicken",
+    "profiles": "Profile",
+    "comparison": "Vergleich",
+    "gunning": "Guniting"
+  },
+  "robot": {
+    "label": "Roboter",
+    "variator": "Variator"
+  },
+  "measurementInfo": {
+    "title": "Messinformationen",
+    "campaign": "Kampagne",
+    "casts": "Anzahl der Gießvorgänge",
+    "date": "Datum",
+    "template": "Vorlage"
+  },
+  "section": {
+    "screens": "Bildschirme"
+  },
+  "settings": {
+    "title": "Einstellungen"
+  },
+  "cycle": "Zyklus",
+  "actions": "Aktionen"
+}

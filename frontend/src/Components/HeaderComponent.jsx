@@ -9,7 +9,7 @@ import PLCAccessControl from "./PLCAccessControl";
 import SettingsDialog from "./SettingsDialog";
 import LanguageSelectionDialog from "./LanguageSelectionDialog";
 import { useTranslation } from "react-i18next";
-import i18n from 'i18next';
+import i18n from "i18next";
 
 const HeaderComponent = () => {
   const [isAboutOpen, setIsAboutOpen] = useState(false);
@@ -22,10 +22,28 @@ const HeaderComponent = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedLanguage, setSelectedLanguage] = useState("English");
   const { t } = useTranslation();
+  const [user, setUser] = useState({}); // default to operator
+  const role = localStorage.getItem("user");
+  // const [currentLang, setCurrentLang] = useState("en");
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, [role]);
+     const flagMap = {
+    en: "https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg",
+    fr: "https://upload.wikimedia.org/wikipedia/en/thumb/c/c3/Flag_of_France.svg/330px-Flag_of_France.svg.png",
+    pt: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Flag_of_Portugal_%28official%29.svg/330px-Flag_of_Portugal_%28official%29.svg.png",
+    es: "https://upload.wikimedia.org/wikipedia/en/thumb/9/9a/Flag_of_Spain.svg/640px-Flag_of_Spain.svg.png",
+    de: "https://upload.wikimedia.org/wikipedia/en/thumb/b/ba/Flag_of_Germany.svg/330px-Flag_of_Germany.svg.png",
+  };
 
   useEffect(() => {
     const savedLang = localStorage.getItem("language") || "en";
     i18n.changeLanguage(savedLang);
+    // setCurrentLang(savedLang);
   }, []);
 
   // Settings dropdown items
@@ -77,8 +95,14 @@ const HeaderComponent = () => {
   const openLanguageSelection = () => setIsLanguageSelectionOpen(true);
   const closeLanguageSelection = () => setIsLanguageSelectionOpen(false);
 
+  // const handleLanguageSelect = (language) => {
+  //   setSelectedLanguage(language);
+  //   closeLanguageSelection();
+  // };
   const handleLanguageSelect = (language) => {
     setSelectedLanguage(language);
+    i18n.changeLanguage(language); // Updates i18n.language internally
+    localStorage.setItem("language", language);
     closeLanguageSelection();
   };
 
@@ -109,7 +133,8 @@ const HeaderComponent = () => {
         <div className="taskbar-left">
           <div className="dropdown-container">
             <button onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
-              Settings
+              {t("settings.title")}
+              {/* Settings */}
             </button>
 
             {/* Settings Dropdown Menu */}
@@ -169,11 +194,25 @@ const HeaderComponent = () => {
       <div className="main-header">
         {/* Left Section - Operator Button and Flag */}
         <div className="header-left">
-          <button className="operator-button">Operator</button>
+          {/* <button className="operator-button">{user.role === operator:{t("roles.operator")}: {t("roles.supervisor")}} */}
+          {/* Operator */}
+          {/* </button> */}
+          <button className="operator-button">
+            {user.role === "operator"
+              ? t("user.roles.operator")
+              : t("user.roles.supervisor")}
+          </button>
 
-          <img
+          {/* <img
             src="https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg"
             alt="US Flag"
+            className="flag-image"
+            onClick={openLanguageSelection}
+            style={{ cursor: "pointer" }}
+          /> */}
+          <img
+            src={flagMap[i18n.language] || flagMap["en"]}
+            alt={`${i18n.language.toUpperCase()} Flag`}
             className="flag-image"
             onClick={openLanguageSelection}
             style={{ cursor: "pointer" }}
@@ -202,6 +241,12 @@ const HeaderComponent = () => {
       <UserProfileDialog
         isOpen={isUserProfileOpen}
         onClose={closeUserProfile}
+        currentRole={user.role}
+        onRoleChange={(newRole) => {
+          const updatedUser = { role: newRole };
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+          setUser(updatedUser); // this triggers re-render
+        }}
       />
       <AboutVisioMAG isOpen={isAboutOpen} onClose={closeAbout} />
       <PLCAccessControl isOpen={isPLCAccessOpen} onClose={closePLCAccess} />

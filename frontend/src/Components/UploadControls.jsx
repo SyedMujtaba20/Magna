@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Upload, CheckCircle, AlertCircle } from "lucide-react";
 import styles from "./styles";
+import { useTranslation } from "react-i18next";
+import i18n from "i18next";
+
 
 const UploadControls = ({
   files,
@@ -16,6 +19,12 @@ const UploadControls = ({
   const [uploadMessage, setUploadMessage] = useState("");
   const [availableFiles, setAvailableFiles] = useState([]);
   const fileInputRef = useRef(null);
+    const { t } = useTranslation();
+  
+    useEffect(() => {
+      const savedLang = localStorage.getItem("language") || "en";
+      i18n.changeLanguage(savedLang);
+    }, []);
 
   useEffect(() => {
     if (files.length > 0) {
@@ -103,7 +112,8 @@ const UploadControls = ({
     <>
       <div style={styles.folderUpload}>
         <label style={styles.folderLabel}>
-          Select Folder
+          {/* Select Folder */}
+          {t("common.selectFolder")}
           <input
             ref={fileInputRef}
             type="file"
@@ -117,7 +127,7 @@ const UploadControls = ({
         </label>
       </div>
 
-      {files.length > 0 && (
+      {/* {files.length > 0 && (
         <button
           onClick={handleUploadToBackend}
           disabled={uploading}
@@ -139,14 +149,14 @@ const UploadControls = ({
           <Upload size={16} />
           {uploading ? "Uploading..." : `Upload ${files.length} Files`}
         </button>
-      )}
+      )} */}
 
       <UploadStatus />
 
       {availableFiles.length > 0 && (
         <div style={{ marginTop: "10px" }}>
           <label style={{ color: "#fff", marginRight: "10px" }}>
-            Select File:
+            {t("common.selectFile")}:
           </label>
           <select
             value={selectedFile?.name || ""}
@@ -179,7 +189,7 @@ const UploadControls = ({
             onChange={(e) => setUseGlobalScaling(e.target.checked)}
             style={{ marginRight: "8px" }}
           />
-          Global Scaling
+        {t("visual.globalScaling")}
         </label>
       </div>
     </>

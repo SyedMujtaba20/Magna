@@ -279,3 +279,18 @@
   color: white;
   font-weight: bold;
 }
+
+/* Normal hover effect */
+.btn:hover {
+  background-color: #e0e0e0;
+  cursor: pointer;
+}
+
+/* Disable hover effect if button is disabled */
+.btn:disabled:hover {
+ 
+   /* or set to your default background */
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}

@@ -270,7 +270,8 @@ const SettingsDialog = ({ isOpen, onClose }) => {
             onClick={() => setShowBrickSettings(true)}
             className="settings-btn settings-btn-secondary"
           >
-            Settings...
+            {/* Settings... */}
+            {t("common.settings")}
           </button>
         </div>
         

@@ -1,1 +1,175 @@
-{}
+{
+  "about": {
+    "title": "Acerca de VisioMAG",
+    "version": "Versión 1.1.0",
+    "created": "Creado en julio de 2025",
+    "developedBy": "Desarrollado por {{company}}"
+  },
+  "comparison": {
+    "instructions": "Seleccione dos coladas para una comparación en vista dual. El modelo se mostrará en colores neutros, mientras que la comparación resaltará las zonas críticas de desgaste en rojo brillante para una identificación inmediata.",
+    "casting": "Colada de comparación:",
+    "template": "Modelo de referencia:",
+    "dualViewTitle": "Vista de Comparación de Dos Hornos",
+    "templateLabel": "Modelo",
+    "comparisonLabel": "Comparación",
+    "wearAnalysis": "Análisis de desgaste",
+    "highWear": "Detección de desgaste severo",
+    "setupTitle": "Configuración de comparación de dos hornos",
+    "startDual": "Iniciar comparación dual",
+    "selectCasting": "Seleccione la colada de comparación",
+    "selectTemplate": "Seleccione el modelo de referencia",
+    "selectFurnace": "Por favor, seleccione un horno",
+    "measurementStats": "Estadísticas de medición:",
+    "criticalWarningTitle": "SE REQUIERE ATENCIÓN CRÍTICA",
+    "criticalWarningDesc": "Las áreas rojas indican una reducción severa del grosor que requiere una inspección inmediata y posible reemplazo.",
+    "backToSelection": "Volver a la selección",
+    "backTo3D": "Volver a la vista 3D",
+    "analysisSettings": "CONFIGURACIÓN DE ANÁLISIS",
+    "repairMaterial": "Material de reparación:",
+    "materials": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Gunita estándar",
+      "highDensity": "Alta densidad",
+      "lowThermal": "Baja conductividad térmica"
+    },
+    "distanceBetweenAreas": "Distancia entre zonas:",
+    "minAreaSize": "Tamaño mínimo de zona:"
+  },
+  "view": {
+    "controls": "Usa el ratón para rotar • Desplaza para hacer zoom",
+    "controls1": "Arrastra para rotar, desplaza para hacer zoom"
+  },
+  "units": {
+    "meters": "metros",
+    "points": "puntos"
+  },
+  "common": {
+    "accept": "Aceptar",
+    "total": "TOTAL",
+    "settings": "Configuración...",
+    "initializing": "Inicializando...",
+    "clear": "Limpiar",
+    "selectFolder": "Seleccionar carpeta",
+    "selectFile": "Seleccionar archivo",
+    "start": "Iniciar",
+    "template": "Modelo",
+    "resetAlarm": "Restablecer alarma",
+    "stop": "Detener",
+    "reset": "Reiniciar"
+  },
+  "repair": {
+    "title": "PROPUESTA DE REPARACIÓN",
+    "material": "Material",
+    "density": "Densidad",
+    "section": "Sección",
+    "noAreas": "No hay zonas que requieran reparación con los parámetros actuales",
+    "materialOptions": {
+      "gunnimagC2": "Gunnimag C2",
+      "standardGunite": "Gunita estándar",
+      "highDensity": "Alta densidad",
+      "lowThermal": "Baja conductividad térmica",
+      "material": "Material",
+      "density": "Densidad",
+      "section": "Sección"
+    }
+  },
+  "gunite": {
+    "title": "VISUALIZACIÓN DE PROPUESTA DE GUNITADO",
+    "description": "Muestra la visualización 3D de las zonas de reparación y necesidades de materiales"
+  },
+  "analysis": {
+    "settingsTitle": "CONFIGURACIÓN DE ANÁLISIS",
+    "distanceBetweenAreas": "Distancia entre zonas:",
+    "points": "Puntos: {{count}}",
+    "files": "Archivos: {{count}}",
+    "zones": "Zonas: Techo, Línea de escoria, Panza, Ladrillos iniciales, Fondo",
+    "profiles": "Perfiles",
+    "instructions": "Haz clic en las celdas o puntos para ver el grosor en todos los archivos",
+    "debug": "Depuración: {{value}}",
+    "materialLabel": "Material de reparación:"
+  },
+  "lidar": {
+    "noDataMessage": "No hay datos disponibles. Por favor, seleccione un archivo con datos LiDAR.",
+    "selectFolder": "Seleccione una carpeta para cargar los datos LiDAR"
+  },
+  "furnace": {
+    "selectLabel": "Seleccione el horno:"
+  },
+  "thickness": {
+    "lowWear": "Desgaste bajo",
+    "highWear": "Desgaste alto",
+    "title": "Grosor del revestimiento del horno",
+    "noData": "No se encontraron datos de grosor para {{zone}} | {{profile}} en ninguno de los {{count}} archivos.",
+    "possibleCauses": "Causas posibles: formato de datos incorrecto o datos faltantes en los archivos CSV.",
+    "filesWithData": "Archivos con datos",
+    "range": "Rango de grosor",
+    "selectFilePrompt": "Seleccione un archivo para visualizar los datos de grosor."
+  },
+  "report": {
+    "title": "Informe de campaña",
+    "start": "Inicio de campaña",
+    "duration": "Duración: {{days}} días",
+    "areaTitle": "{{area}} - Grosor medio durante la campaña",
+    "selectType": "Seleccionar tipo de informe",
+    "daily": "Informe diario",
+    "campaign": "Informe de campaña",
+    "create": "Crear informe",
+    "downloadImages": "Descargar imágenes"
+  },
+  "visual": {
+    "globalScaling": "Escalado global"
+  },
+  "user": {
+    "profileTitle": "Perfil de usuario",
+    "profileLabel": "Perfil de usuario",
+    "roles": {
+      "supervisor": "Supervisor",
+      "operator": "Operador"
+    },
+    "password": "Contraseña"
+  },
+  "session": {
+    "durationPrefix": "(duración de la sesión",
+    "durationValue": "{{minutes}} minutos)"
+  },
+  "reconstruction": {
+    "progress": "Reconstrucción en progreso: {{progress}} %"
+  },
+  "template": {
+    "confirmSet": "¿Desea establecer \"{{file}}\" como nuevo modelo?"
+  },
+  "screens": {
+    "3dView": "Vista 3D",
+    "thicknesses": "Grosor",
+    "profiles": "Perfiles",
+    "comparison": "Comparación",
+    "gunning": "Gunitado"
+  },
+  "robot": {
+    "label": "Robot",
+    "variator": "Variador"
+  },
+  "measurementInfo": {
+    "title": "Información de medición",
+    "campaign": "Campaña",
+    "casts": "Número de coladas",
+    "date": "Fecha",
+    "template": "Modelo"
+  },
+  "section": {
+    "screens": "Pantallas"
+  },
+  "settings": {
+    "title": "Configuración"
+  },
+  "warning": {
+    "noPoints": "No hay puntos disponibles para la pantalla seleccionada \"{{screen}}\".",
+    "causes": "Causas posibles",
+    "cause1": "Datos de \"sección\" faltantes o incompatibles en el archivo CSV.",
+    "cause2": "Ningún punto coincide con la selección actual del horno.",
+    "cause3": "Los datos de grosor pueden no coincidir con el umbral de desgaste.",
+    "suggestion": "Verifique el archivo \"{{file}}\" o ajuste la configuración."
+  },
+  "cycle": "Ciclo",
+  "actions": "Acciones"
+}

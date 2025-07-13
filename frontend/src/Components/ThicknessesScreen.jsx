@@ -17,7 +17,458 @@ import {
 import { useTranslation } from "react-i18next";
 import i18n from "i18next";
 
-// Custom hook to manage Chart.js cleanup
+// FurnaceGridCanvas Component
+const FurnaceGridCanvas = ({ 
+  selectedFile, 
+  fileDataCache, 
+  onCellClick,
+  isUiDisabled 
+}) => {
+  const canvasRef = useRef(null);
+  const sceneRef = useRef(new THREE.Scene());
+  const rendererRef = useRef(null);
+  const cameraRef = useRef(null);
+  const gridMeshRef = useRef(null);
+  const textMeshesRef = useRef([]);
+  const raycasterRef = useRef(new THREE.Raycaster());
+  const [isInitialized, setIsInitialized] = useState(false);
+  
+  // Movement controls state
+  const isDraggingRef = useRef(false);
+  const previousMouseRef = useRef({ x: 0, y: 0 });
+  const cameraPositionRef = useRef({ x: 0, y: 0, zoom: 1 });
+  const rotationRef = useRef(0);
+
+  // Grid configuration - simplified for lines only
+  const gridConfig = {
+    profiles: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10', 'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17'],
+    zones: ['Initial bricks', 'Slag line', 'Slopes']
+  };
+
+  // Initialize the scene with movement controls
+  const initializeScene = useCallback(() => {
+    if (!canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Create renderer
+    const renderer = new THREE.WebGLRenderer({ 
+      canvas, 
+      antialias: true,
+      alpha: true 
+    });
+    renderer.setSize(rect.width, rect.height);
+    renderer.setClearColor(0x000000, 1); // Black background
+    rendererRef.current = renderer;
+
+    // Create camera with initial position
+    const camera = new THREE.OrthographicCamera(
+      -10, 10, 6, -6, 0.1, 1000
+    );
+    camera.position.set(0, 0, 10);
+    camera.lookAt(0, 0, 0);
+    cameraRef.current = camera;
+
+    // Set up scene
+    const scene = sceneRef.current;
+    scene.clear();
+
+    // Initialize camera position
+    cameraPositionRef.current = { x: 0, y: 0, zoom: 1 };
+    rotationRef.current = 0;
+
+    setIsInitialized(true);
+  }, []);
+
+  // Create furnace visualization matching the reference image
+  const createFurnaceLines = useCallback(() => {
+    if (!sceneRef.current || !rendererRef.current) return;
+
+    const scene = sceneRef.current;
+    
+    // Clear existing content
+    if (gridMeshRef.current) {
+      scene.remove(gridMeshRef.current);
+      gridMeshRef.current.traverse((child) => {
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      });
+    }
+
+    textMeshesRef.current.forEach(mesh => {
+      scene.remove(mesh);
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) mesh.material.dispose();
+    });
+    textMeshesRef.current = [];
+
+    const linesGroup = new THREE.Group();
+    const profileCount = gridConfig.profiles.length;
+    const zoneCount = gridConfig.zones.length;
+    
+    const cellWidth = 18 / profileCount;
+    const cellHeight = 10 / zoneCount;
+    const startX = -9;
+    const startY = 4;
+
+    // Get thickness data from cache
+    const getThicknessForCell = (zone, profile) => {
+      if (!selectedFile || !fileDataCache.has(selectedFile.name)) {
+        return Math.random() * 50 + 30;
+      }
+      
+      const fileData = fileDataCache.get(selectedFile.name);
+      const cells = fileData?.cells || [];
+      
+      const cell = cells.find(c => c.zone === zone && c.profile === profile);
+      return cell ? (cell.averageThickness || cell.thickness || 0) : Math.random() * 50 + 30;
+    };
+
+    // Create furnace background shape with gradient colors
+    const createFurnaceBackground = () => {
+      // Create furnace silhouette matching the image
+      const furnaceShape = new THREE.Shape();
+      const centerX = (startX + startX + (profileCount * cellWidth)) / 2;
+      const topY = startY;
+      const bottomY = startY - (zoneCount * cellHeight);
+      
+      // Start from bottom left
+      furnaceShape.moveTo(startX + 1, bottomY + 0.5);
+      // Bottom curve (hearth)
+      furnaceShape.quadraticCurveTo(centerX, bottomY - 0.5, startX + (profileCount * cellWidth) - 1, bottomY + 0.5);
+      // Right side going up with bosh curve
+      furnaceShape.quadraticCurveTo(startX + (profileCount * cellWidth) + 0.5, centerY, startX + (profileCount * cellWidth) - 0.5, topY - 1);
+      // Top section
+      furnaceShape.lineTo(startX + (profileCount * cellWidth) - 1, topY + 0.5);
+      furnaceShape.quadraticCurveTo(centerX, topY + 1, startX + 1, topY + 0.5);
+      // Left side going down
+      furnaceShape.lineTo(startX + 0.5, topY - 1);
+      furnaceShape.quadraticCurveTo(startX - 0.5, centerY, startX + 1, bottomY + 0.5);
+      
+      const furnaceGeometry = new THREE.ShapeGeometry(furnaceShape);
+      
+      // Create gradient material for furnace
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = 512;
+      canvas.height = 512;
+      
+      const gradient = context.createRadialGradient(256, 256, 0, 256, 256, 256);
+      gradient.addColorStop(0, '#44ff44'); // Green center
+      gradient.addColorStop(0.3, '#88ff44'); // Light green
+      gradient.addColorStop(0.6, '#ffaa44'); // Orange
+      gradient.addColorStop(1, '#ff4444'); // Red edges
+      
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      const furnaceMaterial = new THREE.MeshBasicMaterial({ 
+        map: texture,
+        transparent: true,
+        opacity: 0.8
+      });
+      
+      const furnaceMesh = new THREE.Mesh(furnaceGeometry, furnaceMaterial);
+      furnaceMesh.position.z = -0.01;
+      return furnaceMesh;
+    };
+
+    // Add furnace background
+    const centerY = startY - (zoneCount * cellHeight) / 2;
+    linesGroup.add(createFurnaceBackground());
+
+    // Create thickness text at intersections with enhanced styling
+    gridConfig.zones.forEach((zone, zoneIndex) => {
+      gridConfig.profiles.forEach((profile, profileIndex) => {
+        const x = startX + (profileIndex * cellWidth) + (cellWidth / 2);
+        const y = startY - (zoneIndex * cellHeight) - (cellHeight / 2);
+        const thickness = getThicknessForCell(zone, profile);
+        
+        // Create thickness text with better styling
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 100;
+        canvas.height = 50;
+        
+        // Background with rounded corners
+        context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        context.roundRect = function(x, y, w, h, r) {
+          if (w < 2 * r) r = w / 2;
+          if (h < 2 * r) r = h / 2;
+          this.beginPath();
+          this.moveTo(x+r, y);
+          this.arcTo(x+w, y, x+w, y+h, r);
+          this.arcTo(x+w, y+h, x, y+h, r);
+          this.arcTo(x, y+h, x, y, r);
+          this.arcTo(x, y, x+w, y, r);
+          this.closePath();
+          return this;
+        };
+        context.roundRect(5, 5, 90, 40, 8).fill();
+        
+        // Color based on thickness with better contrast
+        let textColor = '#ffffff';
+        if (thickness < 40) textColor = '#ff4444';
+        else if (thickness < 60) textColor = '#ffaa44';
+        else textColor = '#44ff44';
+        
+        // Add subtle glow effect
+        context.shadowColor = textColor;
+        context.shadowBlur = 3;
+        context.fillStyle = textColor;
+        context.font = 'bold 16px Arial';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(thickness.toFixed(1), canvas.width/2, canvas.height/2);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const textMaterial = new THREE.MeshBasicMaterial({ 
+          map: texture,
+          transparent: true,
+          alphaTest: 0.1
+        });
+        const textGeometry = new THREE.PlaneGeometry(cellWidth * 0.8, cellHeight * 0.4);
+        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textMesh.position.set(x, y, 0.02);
+        textMesh.userData = {
+          type: 'thickness',
+          zone: zone,
+          profile: profile,
+          thickness: thickness,
+          profileIndex,
+          zoneIndex
+        };
+        
+        linesGroup.add(textMesh);
+        textMeshesRef.current.push(textMesh);
+      });
+    });
+
+    // Create enhanced grid lines
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3 });
+    
+    // Vertical lines (profiles) - more prominent
+    for (let i = 0; i <= profileCount; i++) {
+      const x = startX + (i * cellWidth);
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(x, startY + 0.5, 0.01),
+        new THREE.Vector3(x, startY - (zoneCount * cellHeight) - 0.5, 0.01)
+      ]);
+      const line = new THREE.Line(lineGeometry, lineMaterial);
+      linesGroup.add(line);
+    }
+    
+    // Horizontal lines (zones) - more prominent
+    for (let i = 0; i <= zoneCount; i++) {
+      const y = startY - (i * cellHeight);
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(startX - 0.5, y, 0.01),
+        new THREE.Vector3(startX + (profileCount * cellWidth) + 0.5, y, 0.01)
+      ]);
+      const line = new THREE.Line(lineGeometry, lineMaterial);
+      linesGroup.add(line);
+    }
+
+    // Enhanced labeling system
+    const createEnhancedLabel = (text, x, y, size = 14, bgColor = 'rgba(0, 0, 0, 0.9)', textColor = '#ffffff') => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = 150;
+      canvas.height = 40;
+      
+      // Enhanced background
+      const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, bgColor);
+      gradient.addColorStop(1, bgColor.replace('0.9', '0.7'));
+      
+      context.fillStyle = gradient;
+      context.roundRect = function(x, y, w, h, r) {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        this.beginPath();
+        this.moveTo(x+r, y);
+        this.arcTo(x+w, y, x+w, y+h, r);
+        this.arcTo(x+w, y+h, x, y+h, r);
+        this.arcTo(x, y+h, x, y, r);
+        this.arcTo(x, y, x+w, y, r);
+        this.closePath();
+        return this;
+      };
+      context.roundRect(2, 2, canvas.width-4, canvas.height-4, 6).fill();
+      
+      // Border
+      context.strokeStyle = textColor;
+      context.lineWidth = 2;
+      context.roundRect(2, 2, canvas.width-4, canvas.height-4, 6).stroke();
+      
+      // Text with shadow
+      context.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      context.shadowBlur = 2;
+      context.shadowOffsetX = 1;
+      context.shadowOffsetY = 1;
+      context.fillStyle = textColor;
+      context.font = `bold ${size}px Arial`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(text, canvas.width/2, canvas.height/2);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      const material = new THREE.MeshBasicMaterial({ 
+        map: texture,
+        transparent: true,
+        alphaTest: 0.1
+      });
+      const geometry = new THREE.PlaneGeometry(2, 0.5);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(x, y, 0.03);
+      return mesh;
+    };
+
+    // Profile labels (P1, P2, etc.) - top of furnace
+    gridConfig.profiles.forEach((profile, index) => {
+      const x = startX + (index * cellWidth) + (cellWidth / 2);
+      const y = startY + 1.2;
+      const label = createEnhancedLabel(profile, x, y, 12, 'rgba(0, 100, 200, 0.9)', '#ffffff');
+      linesGroup.add(label);
+    });
+
+    // Zone labels on the right side
+    const zoneLabels = ['Initial bricks', 'Slag line', 'Slopes'];
+    zoneLabels.forEach((zone, index) => {
+      const x = startX + (profileCount * cellWidth) + 2;
+      const y = startY - (index * cellHeight) - (cellHeight / 2);
+      const label = createEnhancedLabel(zone, x, y, 11, 'rgba(200, 100, 0, 0.9)', '#ffffff');
+      linesGroup.add(label);
+    });
+
+    // Main title
+    const titleLabel = createEnhancedLabel('BLAST FURNACE MONITORING', 0, startY + 2.5, 18, 'rgba(50, 50, 150, 0.95)', '#ffffff');
+    titleLabel.scale.set(3, 1.2, 1);
+    linesGroup.add(titleLabel);
+
+    // Color legend at bottom
+    const legendY = startY - (zoneCount * cellHeight) - 1.5;
+    const legendLabels = [
+      { text: '🟢 Good (>60cm)', x: startX + 1, color: 'rgba(0, 150, 0, 0.9)' },
+      { text: '🟠 Warning (40-60cm)', x: startX + 4, color: 'rgba(200, 100, 0, 0.9)' },
+      { text: '🔴 Critical (<40cm)', x: startX + 7, color: 'rgba(200, 0, 0, 0.9)' }
+    ];
+
+    legendLabels.forEach(legend => {
+      const label = createEnhancedLabel(legend.text, legend.x, legendY, 10, legend.color, '#ffffff');
+      linesGroup.add(label);
+    });
+
+    // Add measurement scale on the left
+    const scaleLabel = createEnhancedLabel('cm', startX - 2.5, startY - (zoneCount * cellHeight) / 2, 12, 'rgba(100, 100, 100, 0.9)', '#ffffff');
+    scaleLabel.rotation.z = Math.PI / 2;
+    linesGroup.add(scaleLabel);
+
+    scene.add(linesGroup);
+    gridMeshRef.current = linesGroup;
+    
+    // Render the scene
+    rendererRef.current.render(scene, cameraRef.current);
+  }, [selectedFile, fileDataCache]);
+
+  // Handle canvas clicks - simplified for thickness text only
+  const handleCanvasClick = useCallback((event) => {
+    if (isUiDisabled || !gridMeshRef.current || !cameraRef.current) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+
+    const raycaster = raycasterRef.current;
+    raycaster.setFromCamera(mouse, cameraRef.current);
+
+    const intersects = raycaster.intersectObjects(gridMeshRef.current.children, true);
+    const thicknessIntersect = intersects.find(intersect => 
+      intersect.object.userData.type === 'thickness'
+    );
+
+    if (thicknessIntersect && onCellClick) {
+      const cellData = thicknessIntersect.object.userData;
+      onCellClick({
+        ...cellData,
+        type: 'cell',
+        thicknessData: [{
+          fileName: selectedFile?.name || 'Current',
+          thickness: cellData.thickness,
+          date: new Date(),
+          color: '#3B82F6'
+        }]
+      });
+    }
+  }, [isUiDisabled, onCellClick, selectedFile]);
+
+  // Handle window resize
+  const handleResize = useCallback(() => {
+    if (!canvasRef.current || !rendererRef.current || !cameraRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    rendererRef.current.setSize(rect.width, rect.height);
+    rendererRef.current.render(sceneRef.current, cameraRef.current);
+  }, []);
+
+  // Initialize scene on mount
+  useEffect(() => {
+    initializeScene();
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+      }
+    };
+  }, [initializeScene, handleResize]);
+
+  // Update lines when data changes
+  useEffect(() => {
+    if (isInitialized) {
+      createFurnaceLines();
+    }
+  }, [isInitialized, createFurnaceLines]);
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          cursor: 'pointer',
+          display: 'block'
+        }}
+        onClick={handleCanvasClick}
+      />
+      {!isInitialized && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: 'white',
+            fontSize: '16px',
+            pointerEvents: 'none'
+          }}
+        >
+          Initializing Grid View...
+        </div>
+      )}
+    </div>
+  );
+};
+
 const useChartCleanup = () => {
   const chartRef = useRef(null);
   const { t } = useTranslation();
@@ -47,7 +498,6 @@ const useChartCleanup = () => {
   return { chartRef, destroyChart };
 };
 
-// ThicknessDialog component
 const ThicknessDialog = ({ showDialog, dialogData, files, onClose }) => {
   const { chartRef, destroyChart } = useChartCleanup();
   const [chartKey, setChartKey] = useState(0);
@@ -151,7 +601,6 @@ const ThicknessDialog = ({ showDialog, dialogData, files, onClose }) => {
 
   if (!showDialog || !dialogData) return null;
 
-  // Enhanced error message for no data
   if (!dialogData.thicknessData || dialogData.thicknessData.length === 0) {
     return (
       <div
@@ -215,12 +664,6 @@ const ThicknessDialog = ({ showDialog, dialogData, files, onClose }) => {
               <X size={20} color="#666" />
             </button>
           </div>
-          {/* <div style={{ color: '#dc3545', textAlign: 'center', padding: '20px' }}>
-            No thickness data found for {dialogData.zone || 'unknown'}|{dialogData.profile || 'unknown'} in any of the {files.length} files.
-            <br />
-            Possible causes: Incorrect data format or missing data in CSV files.
-          </div> */}
-
           <div
             style={{ color: "#dc3545", textAlign: "center", padding: "20px" }}
           >
@@ -333,7 +776,7 @@ const ThicknessDialog = ({ showDialog, dialogData, files, onClose }) => {
             )}
 
             <div>
-              <strong>{t("thickness.filesWithData")}::</strong>
+              <strong>{t("thickness.filesWithData")}:</strong>
               <div>
                 {dialogData.thicknessData?.length || 0} of {files.length}
               </div>
@@ -342,7 +785,6 @@ const ThicknessDialog = ({ showDialog, dialogData, files, onClose }) => {
             {dialogData.thicknessData &&
               dialogData.thicknessData.length > 0 && (
                 <div>
-                  {/* <strong>Thickness Range:</strong> */}
                   <strong>{t("thickness.range")}:</strong>
                   <div>
                     {Math.min(
@@ -433,6 +875,8 @@ const ThicknessesScreen = ({
   const [debugInfo, setDebugInfo] = useState("");
   const [showDialog, setShowDialog] = useState(false);
   const [dialogData, setDialogData] = useState(null);
+  const [viewMode, setViewMode] = useState("3d");
+  const [selectedThumbnail, setSelectedThumbnail] = useState("first");
 
   const canvasRef = useRef(null);
   const sceneRef = useRef(new THREE.Scene());
@@ -445,6 +889,8 @@ const ThicknessesScreen = ({
   const controlsRef = useRef(null);
   const prevPointsLengthRef = useRef(0);
   const isRenderingRef = useRef(false);
+  const firstThumbnailRef = useRef(null);
+  const secondThumbnailRef = useRef(null);
   const { t } = useTranslation();
 
   raycasterRef.current.params.Points.threshold = 2;
@@ -469,7 +915,6 @@ const ThicknessesScreen = ({
     return data;
   }, [selectedFile?.name, fileDataCache]);
 
-  // Log fileDataCache and run coverage analysis
   useEffect(() => {
     if (files.length > 0 && fileDataCache.size > 0) {
       files.forEach((file) => {
@@ -503,7 +948,6 @@ const ThicknessesScreen = ({
     }
   }, [files, fileDataCache]);
 
-  // Log grid cell assignments
   useEffect(() => {
     if (gridMeshRef.current) {
       gridMeshRef.current.traverse((child) => {
@@ -519,17 +963,19 @@ const ThicknessesScreen = ({
   }, [isInitialized]);
 
   useEffect(() => {
-    const cleanup = initializeScene(
-      canvasRef,
-      sceneRef,
-      rendererRef,
-      cameraRef,
-      controlsRef,
-      gridMeshRef,
-      setIsInitialized
-    );
-    return cleanup;
-  }, []);
+    if (viewMode === "3d") {
+      const cleanup = initializeScene(
+        canvasRef,
+        sceneRef,
+        rendererRef,
+        cameraRef,
+        controlsRef,
+        gridMeshRef,
+        setIsInitialized
+      );
+      return cleanup;
+    }
+  }, [viewMode]);
 
   useEffect(() => {
     if (gridMeshRef.current) {
@@ -548,14 +994,29 @@ const ThicknessesScreen = ({
     );
   }, [selectedBrick, selectedCell]);
 
+  useEffect(() => {
+    if (viewMode === "2d-grid" && selectedCell && gridMeshRef.current) {
+      gridMeshRef.current.traverse((child) => {
+        if (child.userData.type === "cell" && child.material) {
+          if (
+            child.userData.zone === selectedCell.zone &&
+            child.userData.profile === selectedCell.profile
+          ) {
+            child.material.opacity = 0.3;
+            child.material.color.set(0x00ff88);
+          } else {
+            child.material.opacity = 0.2;
+            child.material.color.set(0x333333);
+          }
+        }
+      });
+    }
+  }, [selectedCell, viewMode]);
+
   const handleCanvasClick = useCallback(
     debounce((event) => {
-      console.log("[CanvasClick] Starting click handler");
-      console.log("[CanvasClick] isUiDisabled:", isUiDisabled);
-      console.log("[CanvasClick] isRendering:", isRendering);
-
-      if (isUiDisabled || isRendering) {
-        console.log("[CanvasClick] Blocked: UI disabled or rendering");
+      if (isUiDisabled || isRendering || viewMode !== "3d") {
+        console.log("[CanvasClick] Blocked: UI disabled, rendering, or not in 3D mode");
         return;
       }
 
@@ -647,13 +1108,13 @@ const ThicknessesScreen = ({
           if (selectedData) {
             console.log("[CanvasClick] Point selected:", selectedData);
 
-            const markerGeometry = new THREE.SphereGeometry(1, 16, 16); // Size in mm
+            const markerGeometry = new THREE.SphereGeometry(1, 16, 16);
             const markerMaterial = new THREE.MeshBasicMaterial({
               color: 0xff0000,
             });
             const markerMesh = new THREE.Mesh(markerGeometry, markerMaterial);
             const markerPos = {
-              x: selectedData.position[0], // Already in mm
+              x: selectedData.position[0],
               y: selectedData.position[1],
               z: selectedData.position[2],
             };
@@ -673,7 +1134,7 @@ const ThicknessesScreen = ({
               ...selectedData,
               index: selectedIndex,
               type: "point",
-              thickness: selectedData.thickness, // Already in cm
+              thickness: selectedData.thickness,
               thicknessData: thicknessDataAcrossFiles,
             };
 
@@ -689,15 +1150,26 @@ const ThicknessesScreen = ({
         }
       }
     }, 200),
-    [isUiDisabled, isRendering, showGrid, files, fileDataCache]
+    [isUiDisabled, isRendering, showGrid, files, fileDataCache, viewMode]
   );
+
+  const handle2DCellClick = useCallback((cellData) => {
+    console.log("[2D Grid] Cell clicked:", cellData);
+    setSelectedCell(cellData);
+    setSelectedBrick(null);
+    
+    setTimeout(() => {
+      setDialogData(cellData);
+      setShowDialog(true);
+    }, 50);
+  }, []);
 
   const handleMouseMove = debounce(() => {
     console.log("[Canvas] Mouse move event");
   }, 100);
 
   useEffect(() => {
-    if (!selectedFile) return;
+    if (!selectedFile || viewMode !== "3d") return;
 
     console.log(
       "[sceneEffect] File changed, updating scene for:",
@@ -717,7 +1189,7 @@ const ThicknessesScreen = ({
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [selectedFile?.name, points]);
+  }, [selectedFile?.name, points, viewMode]);
 
   const closeDialog = useCallback(() => {
     setShowDialog(false);
@@ -750,10 +1222,16 @@ const ThicknessesScreen = ({
     }
   };
 
+  const handleThumbnailSelect = (thumbnail) => {
+    setSelectedThumbnail(thumbnail);
+    setViewMode(thumbnail === "first" ? "3d" : "2d-grid");
+    clearSelection();
+  };
+
   return (
-    <div style={{ display: "flex", height: "100%", position: "relative" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", position: "relative" }}>
       <div style={{ flex: 1, position: "relative" }}>
-        {!isInitialized && (
+        {!isInitialized && viewMode === "3d" && (
           <div
             style={{
               position: "absolute",
@@ -765,7 +1243,6 @@ const ThicknessesScreen = ({
               textAlign: "center",
             }}
           >
-            {/* Initializing... */}
             {t("common.initializing")}
           </div>
         )}
@@ -782,10 +1259,9 @@ const ThicknessesScreen = ({
             }}
           >
             {t("thickness.selectFilePrompt")}
-            {/* Please select a file to visualize thickness data. */}
           </div>
         )}
-        {isRendering && (
+        {isRendering && viewMode === "3d" && (
           <div
             style={{
               position: "absolute",
@@ -816,17 +1292,6 @@ const ThicknessesScreen = ({
             pointerEvents: "all",
           }}
         >
-          {/* <div>Points: {points.length}</div>
-          <div>Files: {files.length}</div>
-          <div>🟢 Zones: Roof, SlagLine, Belly, InitialBricks, Bottom</div>
-          <div>🔵 Profiles</div>
-          <div>
-            Click grid cells or points to view thickness across all files
-          </div>
-          <div>Drag to rotate, scroll to zoom</div>
-          <div style={{ marginTop: "5px", fontSize: "10px", color: "#666" }}>
-            Debug: {debugInfo}
-          </div> */}
           <div>{t("analysis.points", { count: points.length })}</div>
           <div>{t("analysis.files", { count: files.length })}</div>
           <div>🟢 {t("analysis.zones")}</div>
@@ -849,6 +1314,7 @@ const ThicknessesScreen = ({
               fontSize: "11px",
               marginRight: "5px",
             }}
+            disabled={viewMode !== "3d"}
           >
             {showGrid ? "Hide Grid" : "Show Grid"}
           </button>
@@ -865,23 +1331,170 @@ const ThicknessesScreen = ({
                 fontSize: "11px",
               }}
             >
-              {/* Clear */}
               {t("common.clear")}
             </button>
           )}
+          <div style={{ marginTop: "5px" }}>
+            <button
+              onClick={() => handleThumbnailSelect("first")}
+              style={{
+                padding: "3px 8px",
+                backgroundColor: selectedThumbnail === "first" ? "#3182ce" : "#888",
+                color: "white",
+                border: "none",
+                borderRadius: "3px",
+                cursor: "pointer",
+                fontSize: "11px",
+                marginRight: "5px",
+              }}
+            >
+              3D Furnace
+            </button>
+            <button
+              onClick={() => handleThumbnailSelect("second")}
+              style={{
+                padding: "3px 8px",
+                backgroundColor: selectedThumbnail === "second" ? "#3182ce" : "#888",
+                color: "white",
+                border: "none",
+                borderRadius: "3px",
+                cursor: "pointer",
+                fontSize: "11px",
+              }}
+            >
+              Grid View
+            </button>
+          </div>
         </div>
-        <canvas
-          ref={canvasRef}
-          style={{
-            width: "100%",
-            height: "100%",
-            cursor: "crosshair",
-            display: isInitialized ? "block" : "none",
-          }}
-          onClick={handleCanvasClick}
-          onMouseMove={handleMouseMove}
-          onWheel={(e) => console.log("[Canvas] Wheel event:", e.deltaY)}
-        />
+        <div style={{ width: "100%", height: viewMode === "3d" ? "100%" : "60%", position: "relative" }}>
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: "100%",
+              height: "100%",
+              cursor: "crosshair",
+              display: viewMode === "3d" && isInitialized ? "block" : "none",
+            }}
+            onClick={handleCanvasClick}
+            onMouseMove={handleMouseMove}
+            onWheel={(e) => console.log("[Canvas] Wheel event:", e.deltaY)}
+          />
+          {viewMode === "2d-grid" && (
+            <FurnaceGridCanvas
+              selectedFile={selectedFile}
+              fileDataCache={fileDataCache}
+              onCellClick={handle2DCellClick}
+              isUiDisabled={isUiDisabled}
+            />
+          )}
+        </div>
+      </div>
+      
+      <div style={{ height: "150px", padding: "10px", overflowX: "auto", whiteSpace: "nowrap", backgroundColor: "#f0f0f0" }}>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", height: "100%" }}>
+          <div
+            style={{
+              border: selectedThumbnail === "first" ? "3px solid #3182ce" : "2px solid #ccc",
+              borderRadius: "8px",
+              padding: "12px",
+              backgroundColor: "white",
+              cursor: "pointer",
+              minWidth: "140px",
+              textAlign: "center",
+              transition: "all 0.2s ease",
+              boxShadow: selectedThumbnail === "first" ? "0 4px 12px rgba(49, 130, 206, 0.3)" : "0 2px 4px rgba(0,0,0,0.1)",
+            }}
+            onClick={() => handleThumbnailSelect("first")}
+          >
+            <div style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "8px", color: "#1a202c" }}>
+              3D Furnace View
+            </div>
+            <div style={{ 
+              width: "110px", 
+              height: "70px", 
+              backgroundColor: selectedThumbnail === "first" ? "#e6f3ff" : "#f8f9fa", 
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "11px",
+              color: "#666",
+              margin: "0 auto",
+            }}>
+              🔮 3D Model
+            </div>
+            <div style={{ 
+              fontSize: "10px", 
+              color: selectedThumbnail === "first" ? "#3182ce" : "#888", 
+              marginTop: "6px",
+              fontWeight: selectedThumbnail === "first" ? "600" : "normal"
+            }}>
+              Interactive 3D visualization
+            </div>
+          </div>
+          
+          <div
+            style={{
+              border: selectedThumbnail === "second" ? "3px solid #3182ce" : "2px solid #ccc",
+              borderRadius: "8px",
+              padding: "12px",
+              backgroundColor: "white",
+              cursor: "pointer",
+              minWidth: "140px",
+              textAlign: "center",
+              transition: "all 0.2s ease",
+              boxShadow: selectedThumbnail === "second" ? "0 4px 12px rgba(49, 130, 206, 0.3)" : "0 2px 4px rgba(0,0,0,0.1)",
+            }}
+            onClick={() => handleThumbnailSelect("second")}
+          >
+            <div style={{ fontSize: "14px", fontWeight: "bold", marginBottom: "8px", color: "#1a202c" }}>
+              Grid View
+            </div>
+            <div style={{ 
+              width: "110px", 
+              height: "70px", 
+              backgroundColor: selectedThumbnail === "second" ? "#e6f3ff" : "#f8f9fa", 
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "11px",
+              color: "#666",
+              margin: "0 auto",
+            }}>
+              📊 Grid Layout
+            </div>
+            <div style={{ 
+              fontSize: "10px", 
+              color: selectedThumbnail === "second" ? "#3182ce" : "#888", 
+              marginTop: "6px",
+              fontWeight: selectedThumbnail === "second" ? "600" : "normal"
+            }}>
+              2D grid analysis
+            </div>
+          </div>
+
+          <div style={{ 
+            padding: "12px", 
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            borderRadius: "8px",
+            border: "1px solid #e2e8f0",
+            fontSize: "12px",
+            color: "#4a5568",
+            maxWidth: "200px",
+          }}>
+            <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+              💡 Quick Tips:
+            </div>
+            <div style={{ fontSize: "11px", lineHeight: "1.4" }}>
+              • Click points/cells for details<br/>
+              • Use mouse to rotate/zoom in 3D<br/>
+              • Toggle grid overlay as needed
+            </div>
+          </div>
+        </div>
       </div>
 
       <ThicknessDialog

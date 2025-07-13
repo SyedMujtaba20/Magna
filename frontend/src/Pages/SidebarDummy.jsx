@@ -28,11 +28,15 @@ const Sidebar = ({
   selectedFile,
   onScreenChange,
   onCreateReportClick,
+  // 🆕 NEW: Active screen prop to determine what to capture
+  activeScreen,
   // 🆕 NEW: Gunning data prop for Daily Report integration
   gunningData,
+  // 🆕 NEW: Thickness data prop for Campaign Report integration
+  thicknessData,
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [activeScreen, setActiveScreen] = useState("3DView");
+  const [currentActiveScreen, setCurrentActiveScreen] = useState("3DView");
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("user")) || {});
 
   const { t } = useTranslation();
@@ -66,6 +70,13 @@ const Sidebar = ({
     };
   }, []); // Empty dependency array
 
+  // Update local active screen state
+  useEffect(() => {
+    if (activeScreen) {
+      setCurrentActiveScreen(activeScreen);
+    }
+  }, [activeScreen]);
+
   const isOperator = user.role === "operator";
 
   useEffect(() => {
@@ -77,6 +88,11 @@ const Sidebar = ({
   const hasGunningData = useMemo(() => {
     return !!(gunningData?.bricks || gunningData?.slagLine || gunningData?.screed);
   }, [gunningData]);
+
+  // 🆕 NEW: Check if thickness data exists for Campaign Report enhancement
+  const hasThicknessData = useMemo(() => {
+    return !!(thicknessData?.comprehensiveAnalysis || thicknessData?.statistics);
+  }, [thicknessData]);
 
   // 🆕 NEW: Calculate total repair areas from gunning data
   const totalRepairAreas = useMemo(() => {
@@ -95,13 +111,277 @@ const Sidebar = ({
     return total;
   }, [gunningData, hasGunningData]);
 
+  // 🆕 NEW: Enhanced image download functionality
+  const handleDownloadImages = useCallback(async () => {
+    console.log(`📸 [Sidebar] Downloading images for ${currentActiveScreen} screen`);
+    
+    try {
+      if (currentActiveScreen === "DailyReport") {
+        await downloadDailyReportImages();
+      } else if (currentActiveScreen === "CampaignReport") {
+        await downloadCampaignReportImages();
+      } else {
+        // For other screens, capture the main content area
+        await downloadGenericScreenshot();
+      }
+    } catch (error) {
+      console.error('Error downloading images:', error);
+      alert('Failed to download images. Please try again.');
+    }
+  }, [currentActiveScreen]);
+
+  // 🆕 NEW: Download Daily Report images and data
+  const downloadDailyReportImages = useCallback(async () => {
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const images = [];
+    
+    try {
+      // 1. Capture full page screenshot
+      const fullPageImage = await captureScreenshot('daily-report-content', `daily_report_full_${timestamp}`);
+      if (fullPageImage) images.push(fullPageImage);
+
+      // 2. Capture individual section screenshots if gunning data exists
+      if (hasGunningData) {
+        // Capture gunning analysis screenshots for each section
+        const sections = ['bricks', 'slagLine', 'screed'];
+        for (const section of sections) {
+          if (gunningData[section]?.repairProposal) {
+            const sectionElement = document.querySelector(`[data-section="${section}"]`);
+            if (sectionElement) {
+              const sectionImage = await captureElementScreenshot(
+                sectionElement, 
+                `daily_report_${section}_${timestamp}`
+              );
+              if (sectionImage) images.push(sectionImage);
+            }
+          }
+        }
+
+        // 3. Download gunning analysis data as JSON
+        await downloadGunningDataAsJson(timestamp);
+      }
+
+      // 4. Capture thickness table
+      const tableElement = document.querySelector('table');
+      if (tableElement) {
+        const tableImage = await captureElementScreenshot(
+          tableElement, 
+          `daily_report_thickness_table_${timestamp}`
+        );
+        if (tableImage) images.push(tableImage);
+      }
+
+      console.log(`✅ Downloaded ${images.length} images for Daily Report`);
+      
+    } catch (error) {
+      console.error('Error capturing Daily Report images:', error);
+      throw error;
+    }
+  }, [hasGunningData, gunningData]);
+
+  // 🆕 NEW: Download Campaign Report images and data
+  const downloadCampaignReportImages = useCallback(async () => {
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const images = [];
+    
+    try {
+      // 1. Capture full page screenshot
+      const fullPageImage = await captureScreenshot('campaign-report-content', `campaign_report_full_${timestamp}`);
+      if (fullPageImage) images.push(fullPageImage);
+
+      // 2. Capture individual charts
+      const chartContainers = document.querySelectorAll('.recharts-wrapper');
+      for (let i = 0; i < chartContainers.length; i++) {
+        const chartImage = await captureElementScreenshot(
+          chartContainers[i], 
+          `campaign_chart_${i + 1}_${timestamp}`
+        );
+        if (chartImage) images.push(chartImage);
+      }
+
+      // 3. Capture statistics dashboard
+      const statsGrid = document.querySelector('[style*="grid-template-columns"]');
+      if (statsGrid) {
+        const statsImage = await captureElementScreenshot(
+          statsGrid, 
+          `campaign_statistics_${timestamp}`
+        );
+        if (statsImage) images.push(statsImage);
+      }
+
+      // 4. Download thickness analysis data as JSON
+      if (hasThicknessData) {
+        await downloadThicknessDataAsJson(timestamp);
+      }
+
+      console.log(`✅ Downloaded ${images.length} images for Campaign Report`);
+      
+    } catch (error) {
+      console.error('Error capturing Campaign Report images:', error);
+      throw error;
+    }
+  }, [hasThicknessData, thicknessData]);
+
+  // 🆕 NEW: Generic screenshot for other screens
+  const downloadGenericScreenshot = useCallback(async () => {
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    
+    try {
+      // Try to find main content area
+      const mainContent = document.querySelector('.main-content') || 
+                         document.querySelector('[class*="content"]') || 
+                         document.querySelector('main') ||
+                         document.body;
+      
+      if (mainContent) {
+        await captureElementScreenshot(
+          mainContent, 
+          `${currentActiveScreen.toLowerCase()}_screenshot_${timestamp}`
+        );
+        console.log(`✅ Downloaded screenshot for ${currentActiveScreen}`);
+      }
+    } catch (error) {
+      console.error('Error capturing generic screenshot:', error);
+      throw error;
+    }
+  }, [currentActiveScreen]);
+
+  // 🆕 NEW: Helper function to capture screenshot of specific element
+  const captureElementScreenshot = useCallback(async (element, filename) => {
+    try {
+      // Use html2canvas if available, otherwise try canvas API
+      if (window.html2canvas) {
+        const canvas = await window.html2canvas(element, {
+          backgroundColor: '#ffffff',
+          scale: 2, // Higher quality
+          logging: false,
+          useCORS: true,
+          allowTaint: true
+        });
+        
+        // Convert to blob and download
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${filename}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 'image/png');
+        
+        return true;
+      } else {
+        // Fallback: Try to get canvas elements directly
+        const canvases = element.querySelectorAll('canvas');
+        if (canvases.length > 0) {
+          canvases.forEach((canvas, index) => {
+            const url = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}_canvas_${index + 1}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          });
+          return true;
+        }
+        
+        console.warn('html2canvas not available and no canvas elements found');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error capturing element screenshot:', error);
+      return false;
+    }
+  }, []);
+
+  // 🆕 NEW: Helper function to capture screenshot by element ID/selector
+  const captureScreenshot = useCallback(async (selector, filename) => {
+    const element = document.getElementById(selector) || document.querySelector(`.${selector}`);
+    if (element) {
+      return await captureElementScreenshot(element, filename);
+    } else {
+      console.warn(`Element not found: ${selector}`);
+      return false;
+    }
+  }, [captureElementScreenshot]);
+
+  // 🆕 NEW: Download gunning data as JSON
+  const downloadGunningDataAsJson = useCallback(async (timestamp) => {
+    try {
+      const gunningExport = {
+        timestamp: new Date().toISOString(),
+        source: 'DailyReport_GunningAnalysis',
+        data: gunningData,
+        summary: {
+          sectionsAnalyzed: Object.keys(gunningData).filter(k => k !== 'screenshots' && gunningData[k]),
+          totalRepairAreas: totalRepairAreas,
+          totalCost: Object.values(gunningData).reduce((sum, section) => 
+            sum + (section?.repairProposal?.total?.cost || 0), 0
+          )
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(gunningExport, null, 2)], { 
+        type: 'application/json' 
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gunning_analysis_data_${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Downloaded gunning analysis data');
+    } catch (error) {
+      console.error('Error downloading gunning data:', error);
+    }
+  }, [gunningData, totalRepairAreas]);
+
+  // 🆕 NEW: Download thickness data as JSON
+  const downloadThicknessDataAsJson = useCallback(async (timestamp) => {
+    try {
+      const thicknessExport = {
+        timestamp: new Date().toISOString(),
+        source: 'CampaignReport_ThicknessAnalysis',
+        data: thicknessData,
+        summary: {
+          hasComprehensiveAnalysis: !!thicknessData.comprehensiveAnalysis,
+          totalCells: thicknessData.statistics?.totalCells || 0,
+          criticalAreas: thicknessData.statistics?.criticalAreas || 0,
+          averageThickness: thicknessData.statistics?.averageThickness || 0
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(thicknessExport, null, 2)], { 
+        type: 'application/json' 
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `thickness_analysis_data_${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Downloaded thickness analysis data');
+    } catch (error) {
+      console.error('Error downloading thickness data:', error);
+    }
+  }, [thicknessData]);
+
   // Memoized handlers
   const handleDialogOpen = useCallback(() => setIsDialogOpen(true), []);
   const handleDialogClose = useCallback(() => setIsDialogOpen(false), []);
 
   const handleScreenChange = useCallback(
     (screen) => {
-      setActiveScreen(screen);
+      setCurrentActiveScreen(screen);
       onScreenChange(screen);
     },
     [onScreenChange]
@@ -231,7 +511,7 @@ const Sidebar = ({
     [alarmState.robot, alarmState.variator, t]
   );
 
-  // 🔄 UPDATED: Enhanced info box content with gunning data status
+  // 🔄 UPDATED: Enhanced info box content with download status
   const infoBoxContent = useMemo(
     () => (
       <div className="info-box">
@@ -245,53 +525,31 @@ const Sidebar = ({
           </p>
         )}
         
-        {/* 🆕 NEW: Gunning data status for Daily Report */}
-        {/* {hasGunningData && (
+        {/* 🆕 NEW: Download capability indicator */}
+        {(currentActiveScreen === "DailyReport" || currentActiveScreen === "CampaignReport") && (
           <div style={{
             marginTop: "12px",
-            padding: "10px",
-            backgroundColor: "#d4edda",
+            padding: "8px",
+            backgroundColor: "#e3f2fd",
             borderRadius: "6px",
-            border: "1px solid #c3e6cb"
+            border: "1px solid #2196f3"
           }}>
             <p style={{ 
-              fontSize: "12px", 
-              margin: "0 0 4px 0", 
-              color: "#155724",
-              fontWeight: "bold",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}>
-              🔧 Gunning Analysis Ready
-            </p>
-            <div style={{ 
               fontSize: "11px", 
-              color: "#155724",
-              lineHeight: "1.3"
+              margin: "0", 
+              color: "#1565c0",
+              fontWeight: "bold"
             }}>
-              {gunningData.bricks && (
-                <div>• Bricks: {gunningData.bricks.repairProposal?.areas?.length || 0} areas</div>
-              )}
-              {gunningData.slagLine && (
-                <div>• Slag Line: {gunningData.slagLine.repairProposal?.areas?.length || 0} areas</div>
-              )}
-              {gunningData.screed && (
-                <div>• Screed: {gunningData.screed.repairProposal?.areas?.length || 0} areas</div>
-              )}
-              <div style={{ 
-                marginTop: "4px", 
-                fontWeight: "bold", 
-                color: "#0f5132" 
-              }}>
-                Total: {totalRepairAreas} repair areas
-              </div>
+              📸 Image Download Available
+            </p>
+            <div style={{ fontSize: "10px", color: "#1565c0", marginTop: "2px" }}>
+              {currentActiveScreen === "DailyReport" ? "Screenshots + Gunning Data" : "Charts + Analysis Data"}
             </div>
           </div>
-        )} */}
+        )}
       </div>
     ),
-    [templateData, t, hasGunningData, gunningData, totalRepairAreas]
+    [templateData, t, currentActiveScreen]
   );
 
   return (
@@ -358,7 +616,7 @@ const Sidebar = ({
               {screenButtons.map(({ key, label, icon, onClick }) => (
                 <button
                   key={key}
-                  className={`btn ${activeScreen === key ? "active" : ""}`}
+                  className={`btn ${currentActiveScreen === key ? "active" : ""}`}
                   onClick={onClick || (() => handleScreenChange(key))}
                   disabled={buttonStates.screen.disabled}
                 >
@@ -368,7 +626,7 @@ const Sidebar = ({
             </div>
           </div>
 
-          {/* 🔄 UPDATED: Enhanced Actions section with gunning data awareness */}
+          {/* 🔄 UPDATED: Enhanced Actions section with intelligent download */}
           <div>
             <h3 className="section-title">{t("actions")}</h3>
             <div className="button-group">
@@ -406,26 +664,76 @@ const Sidebar = ({
                 )}
               </button>
               
-              <button className="btn" disabled={buttonStates.action.disabled}>
-                <Download size={16} /> {t("report.downloadImages")}
+              {/* 🔄 UPDATED: Enhanced Download Images button using simplified approach */}
+              <button 
+                className="btn" 
+                onClick={() => {
+                  if (currentActiveScreen === "DailyReport" && hasGunningData) {
+                    // Download gunning images for Daily Report
+                    downloadGunningImages(gunningData?.screenshots || {});
+                  } else if (currentActiveScreen === "CampaignReport") {
+                    // Download campaign report data and screenshots
+                    handleDownloadImages();
+                  } else {
+                    // Generic download for other screens
+                    handleDownloadImages();
+                  }
+                }}
+                disabled={buttonStates.action.disabled}
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+                title={
+                  currentActiveScreen === "DailyReport" ? "Download Daily Report gunning images and data" :
+                  currentActiveScreen === "CampaignReport" ? "Download Campaign Report charts and analysis data" :
+                  `Download ${currentActiveScreen} screenshot`
+                }
+              >
+                <Download size={16} /> 
+                {currentActiveScreen === "DailyReport" || currentActiveScreen === "CampaignReport" 
+                  ? "Download Report Images" 
+                  : t("report.downloadImages")
+                }
+                
+                {/* 🆕 NEW: Enhanced download indicator */}
+                {(currentActiveScreen === "DailyReport" && hasGunningData) || 
+                 (currentActiveScreen === "CampaignReport" && hasThicknessData) ? (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-2px',
+                    right: '-2px',
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: '#007bff',
+                    borderRadius: '50%',
+                    border: '1px solid white'
+                  }} />
+                ) : null}
               </button>
             </div>
 
-            {/* 🆕 NEW: Gunning data enhancement notice */}
-            {/* {hasGunningData && (
+            {/* 🆕 NEW: Download status indicator */}
+            {(currentActiveScreen === "DailyReport" || currentActiveScreen === "CampaignReport") && (
               <div style={{
                 marginTop: "8px",
-                padding: "8px",
-                backgroundColor: "#fff3cd",
+                padding: "6px 8px",
+                backgroundColor: "#f8f9fa",
                 borderRadius: "4px",
-                border: "1px solid #ffeaa7",
-                fontSize: "11px",
-                color: "#856404",
+                border: "1px solid #dee2e6",
+                fontSize: "10px",
+                color: "#495057",
                 textAlign: "center"
               }}>
-                📊 Daily Report will include gunning analysis
+                📸 {currentActiveScreen === "DailyReport" ? 
+                  `Gunning Images${hasGunningData ? ' + Data' : ''} available` : 
+                  `Charts${hasThicknessData ? ' + Data' : ''} available`
+                }
               </div>
-            )} */}
+            )}
           </div>
 
           {infoBoxContent}
@@ -461,6 +769,39 @@ const Sidebar = ({
       )} */}
     </div>
   );
+};
+
+// 🆕 NEW: Download gunning images function (from your existing code)
+export const downloadGunningImages = (gunningWearImages) => {
+  console.log('📸 [Sidebar] Downloading gunning images:', gunningWearImages);
+  
+  const sections = ["bricks", "slagLine", "screed"];
+  let downloadCount = 0;
+  
+  sections.forEach((section) => {
+    const imageObj = gunningWearImages[section];
+    const dataUrl = imageObj?.dataUrl;
+    if (dataUrl) {
+      const link = document.createElement("a");
+      link.href = dataUrl.replace("image/png", "image/jpeg"); // Optional: convert MIME to JPEG if needed
+      link.download = `${section}_gunning_analysis.jpg`; // Filename
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      downloadCount++;
+      console.log(`✅ Downloaded gunning image for ${section}`);
+    } else {
+      console.log(`⚠️ No image data available for ${section}`);
+    }
+  });
+  
+  if (downloadCount > 0) {
+    console.log(`🎉 Successfully downloaded ${downloadCount} gunning images`);
+    alert(`Downloaded ${downloadCount} gunning analysis images!`);
+  } else {
+    console.log('❌ No gunning images were available for download');
+    alert('No gunning images available for download. Please run gunning analysis first.');
+  }
 };
 
 export default Sidebar;

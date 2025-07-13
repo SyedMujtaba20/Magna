@@ -55,6 +55,7 @@ const zoomPanelStyle = {
 };
 
 const LidarVisualizer = () => {
+  // Core state management
   const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedFurnace, setSelectedFurnace] = useState(null);
@@ -109,6 +110,31 @@ const LidarVisualizer = () => {
     }
   });
 
+  // 🆕 NEW: ThicknessScreen data management for comprehensive analysis
+  const [thicknessData, setThicknessData] = useState({
+    cellSelections: new Map(), // Store cell selections by zone-profile key
+    pointSelections: new Map(), // Store point selections by coordinate key
+    gridAnalysis: new Map(), // Store grid analysis by file name
+    comprehensiveAnalysis: null, // Latest comprehensive analysis
+    campaignTrends: [], // Campaign-level thickness trends
+    exportHistory: [], // History of data exports from ThicknessScreen
+    lastUpdated: null,
+    statistics: {
+      totalCells: 0,
+      averageThickness: 0,
+      criticalAreas: 0,
+      wornAreas: 0
+    }
+  });
+
+  // 🆕 NEW: Combined data state for unified reporting
+  const [combinedAnalysisData, setCombinedAnalysisData] = useState({
+    thickness: null,
+    gunning: null,
+    integrated: null,
+    lastSync: null
+  });
+
   const previewCanvasRefs = useRef(new Map());
   const { language } = useContext(LanguageContext);
   const { t } = useTranslation();
@@ -118,10 +144,79 @@ const LidarVisualizer = () => {
     console.log("Active screen changed:", activeScreen);
   }, [activeScreen]);
 
+  // 🆕 NEW: Debug thickness data changes
+  useEffect(() => {
+    console.log('📊 ThicknessScreen data updated for LiDAR integration:', {
+      cellSelectionsCount: thicknessData.cellSelections.size,
+      pointSelectionsCount: thicknessData.pointSelections.size,
+      gridAnalysisCount: thicknessData.gridAnalysis.size,
+      hasComprehensiveAnalysis: !!thicknessData.comprehensiveAnalysis,
+      lastUpdated: thicknessData.lastUpdated
+    });
+  }, [thicknessData]);
+
   // 🆕 NEW: Debug gunning data changes
   useEffect(() => {
     console.log('🔧 Gunning data updated for Daily Report:', gunningData);
   }, [gunningData]);
+
+  // 🆕 NEW: Sync combined analysis when either thickness or gunning data changes
+  useEffect(() => {
+    const syncCombinedData = () => {
+      const integrated = {
+        timestamp: new Date().toISOString(),
+        source: 'LiDAR_Integration',
+        thickness: {
+          hasData: !!thicknessData.comprehensiveAnalysis,
+          cellSelections: thicknessData.cellSelections.size,
+          statistics: thicknessData.statistics,
+          trends: thicknessData.campaignTrends
+        },
+        gunning: {
+          hasData: !!(gunningData.bricks || gunningData.slagLine || gunningData.screed),
+          sectionsAnalyzed: Object.keys(gunningData).filter(key => 
+            key !== 'screenshots' && gunningData[key]
+          ).length,
+          repairAreas: Object.values(gunningData).reduce((total, section) => {
+            return total + (section?.repairProposal?.areas?.length || 0);
+          }, 0)
+        },
+        recommendations: [],
+        alerts: []
+      };
+
+      // Generate integrated recommendations
+      if (integrated.thickness.hasData && integrated.gunning.hasData) {
+        integrated.recommendations.push({
+          type: 'cross_analysis',
+          priority: 'high',
+          message: 'Thickness and gunning analysis available for comprehensive repair planning'
+        });
+      }
+
+      // Generate alerts based on critical areas
+      if (integrated.thickness.statistics.criticalAreas > 0) {
+        integrated.alerts.push({
+          type: 'thickness_critical',
+          severity: 'high',
+          count: integrated.thickness.statistics.criticalAreas,
+          message: `${integrated.thickness.statistics.criticalAreas} areas below critical thickness threshold`
+        });
+      }
+
+      setCombinedAnalysisData(prev => ({
+        ...prev,
+        thickness: thicknessData.comprehensiveAnalysis,
+        gunning: gunningData,
+        integrated,
+        lastSync: new Date().toISOString()
+      }));
+    };
+
+    if (thicknessData.comprehensiveAnalysis || Object.values(gunningData).some(val => val)) {
+      syncCombinedData();
+    }
+  }, [thicknessData.comprehensiveAnalysis, gunningData]);
 
   useEffect(() => {
     i18n.changeLanguage(language);
@@ -172,6 +267,114 @@ const LidarVisualizer = () => {
     }));
   }, []);
 
+  // 🆕 NEW: Handle thickness data exports from ThicknessScreen
+  const handleThicknessDataExport = useCallback((exportData) => {
+    console.log(`📈 Received thickness data from ThicknessScreen:`, exportData);
+    
+    setThicknessData(prev => {
+      const updated = { ...prev };
+      
+      switch (exportData.type) {
+        case 'cellSelection':
+          const cellKey = `${exportData.cellData.zone}-${exportData.cellData.profile}`;
+          updated.cellSelections.set(cellKey, {
+            ...exportData.cellData,
+            exportedAt: exportData.timestamp,
+            fileName: exportData.fileName
+          });
+          break;
+          
+        case 'pointSelection':
+          const pointKey = exportData.pointData.position?.join(',') || `${exportData.pointData.index}`;
+          updated.pointSelections.set(pointKey, {
+            ...exportData.pointData,
+            exportedAt: exportData.timestamp,
+            fileName: exportData.fileName
+          });
+          break;
+          
+        case 'gridSummary':
+          updated.gridAnalysis.set(exportData.fileName, {
+            ...exportData,
+            processedAt: exportData.timestamp
+          });
+          break;
+          
+        case 'comprehensiveThicknessAnalysis':
+          updated.comprehensiveAnalysis = exportData;
+          updated.campaignTrends = exportData.thicknessEvolution || [];
+          updated.statistics = {
+            totalCells: exportData.zoneAnalysis?.reduce((sum, zone) => 
+              sum + (zone.evolution?.length || 0), 0) || 0,
+            averageThickness: exportData.zoneAnalysis?.reduce((sum, zone) => {
+              const avgThickness = zone.evolution?.reduce((zSum, data) => 
+                zSum + data.averageThickness, 0) / (zone.evolution?.length || 1);
+              return sum + avgThickness;
+            }, 0) / (exportData.zoneAnalysis?.length || 1) || 0,
+            criticalAreas: exportData.criticalAreas?.length || 0,
+            wornAreas: exportData.criticalAreas?.filter(area => area.severity === 'critical')?.length || 0
+          };
+          break;
+          
+        default:
+          console.log('Unknown thickness export type:', exportData.type);
+      }
+      
+      // Add to export history
+      updated.exportHistory.push({
+        ...exportData,
+        id: Date.now(),
+        receivedAt: new Date().toISOString()
+      });
+      
+      // Keep only last 50 exports
+      if (updated.exportHistory.length > 50) {
+        updated.exportHistory = updated.exportHistory.slice(-50);
+      }
+      
+      updated.lastUpdated = new Date().toISOString();
+      
+      return updated;
+    });
+  }, []);
+
+  // 🆕 NEW: Handle thickness analysis results from ThicknessScreen
+  const handleThicknessAnalysis = useCallback((analysisData) => {
+    console.log(`🔬 Received thickness analysis from ThicknessScreen:`, analysisData);
+    
+    setThicknessData(prev => ({
+      ...prev,
+      comprehensiveAnalysis: {
+        ...analysisData,
+        receivedAt: new Date().toISOString(),
+        source: 'ThicknessScreen'
+      },
+      lastUpdated: new Date().toISOString()
+    }));
+  }, []);
+
+  // 🆕 NEW: Handle campaign data updates from ThicknessScreen
+  const handleCampaignDataUpdate = useCallback((campaignData) => {
+    console.log(`📊 Received campaign data from ThicknessScreen:`, campaignData);
+    
+    setThicknessData(prev => ({
+      ...prev,
+      campaignTrends: prev.campaignTrends.concat([{
+        ...campaignData,
+        receivedAt: new Date().toISOString()
+      }]),
+      lastUpdated: new Date().toISOString()
+    }));
+
+    // Update campaign info if needed
+    if (campaignData.fileName && campaignData.timestamp) {
+      setCampaignInfo(prev => ({
+        ...prev,
+        endDate: new Date(campaignData.timestamp).toISOString().split('T')[0]
+      }));
+    }
+  }, []);
+
   // 🆕 NEW: Generate canvas screenshot for Daily Report
   const captureCanvasScreenshot = useCallback((canvasRef, filename) => {
     if (!canvasRef?.current) return null;
@@ -194,6 +397,13 @@ const LidarVisualizer = () => {
   const hasGunningData = useMemo(() => {
     return !!(gunningData.bricks || gunningData.slagLine || gunningData.screed);
   }, [gunningData]);
+
+  // 🆕 NEW: Check if thickness data exists
+  const hasThicknessData = useMemo(() => {
+    return !!(thicknessData.comprehensiveAnalysis || 
+              thicknessData.cellSelections.size > 0 || 
+              thicknessData.gridAnalysis.size > 0);
+  }, [thicknessData]);
 
   // 🆕 NEW: Transform gunning data for Daily Report format
   const gunningRepairProposals = useMemo(() => {
@@ -220,6 +430,27 @@ const LidarVisualizer = () => {
     return proposals;
   }, [gunningData]);
 
+  // 🆕 NEW: Transform thickness data for Daily Report format
+  const thicknessRepairProposals = useMemo(() => {
+    const proposals = {};
+    
+    if (thicknessData.comprehensiveAnalysis?.criticalAreas) {
+      const criticalByZone = thicknessData.comprehensiveAnalysis.criticalAreas.reduce((acc, area) => {
+        if (!acc[area.zone]) acc[area.zone] = [];
+        acc[area.zone].push(area);
+        return acc;
+      }, {});
+
+      Object.entries(criticalByZone).forEach(([zone, areas]) => {
+        const avgThickness = areas.reduce((sum, area) => sum + area.thickness, 0) / areas.length;
+        proposals[zone] = `Thickness Analysis: ${areas.length} critical areas detected. ` +
+          `Average thickness: ${avgThickness.toFixed(1)}cm. Immediate attention required.`;
+      });
+    }
+    
+    return proposals;
+  }, [thicknessData.comprehensiveAnalysis]);
+
   // 🆕 NEW: Create wear images from gunning screenshots
   const gunningWearImages = useMemo(() => {
     const images = {};
@@ -237,13 +468,28 @@ const LidarVisualizer = () => {
     return images;
   }, [gunningData.screenshots]);
 
-  // 🔄 UPDATED: Enhanced thickness table data with gunning analysis
+  // 🔄 UPDATED: Enhanced thickness table data with both gunning and thickness analysis
   const thicknessTableData = useMemo(() => {
     const baseData = {
       Bricks: [85, 82, 80],
       "Slag Line": [60, 62, 58],
       Screed: [70, 65, 68], // Changed from "Slopes" to "Screed" to match gunning
     };
+
+    // Add thickness analysis data if available
+    if (hasThicknessData && thicknessData.comprehensiveAnalysis?.zoneAnalysis) {
+      thicknessData.comprehensiveAnalysis.zoneAnalysis.forEach(zone => {
+        const zoneName = zone.zone === 'Initial bricks' ? 'Bricks' : 
+                        zone.zone === 'Slag line' ? 'Slag Line' : 
+                        zone.zone === 'Slopes' ? 'Screed' : zone.zone;
+        
+        if (baseData[zoneName] && zone.evolution?.length > 0) {
+          const latestThickness = zone.evolution[zone.evolution.length - 1].averageThickness;
+          baseData[zoneName] = [latestThickness.toFixed(1), ...baseData[zoneName].slice(1)];
+          baseData[zoneName].push(`Trend: ${zone.trend > 0 ? '+' : ''}${zone.trend.toFixed(1)}cm`);
+        }
+      });
+    }
 
     // Add gunning analysis data if available
     if (hasGunningData) {
@@ -259,9 +505,9 @@ const LidarVisualizer = () => {
     }
 
     return baseData;
-  }, [hasGunningData, gunningData]);
+  }, [hasGunningData, gunningData, hasThicknessData, thicknessData.comprehensiveAnalysis]);
 
-  // 🔄 UPDATED: Enhanced repair proposals with gunning data
+  // 🔄 UPDATED: Enhanced repair proposals with both gunning and thickness data
   const repairProposals = useMemo(() => {
     const baseProposals = {
       Bricks: t("dailyReport.repairProposals.bricks"),
@@ -269,19 +515,37 @@ const LidarVisualizer = () => {
       Screed: t("dailyReport.repairProposals.slopes"), // Using slopes translation for now
     };
 
-    // Override with gunning data if available
-    if (hasGunningData) {
-      return {
-        ...baseProposals,
-        ...gunningRepairProposals
-      };
+    // Combine thickness and gunning proposals
+    const combinedProposals = { ...baseProposals };
+
+    // Add thickness analysis proposals
+    if (hasThicknessData) {
+      Object.entries(thicknessRepairProposals).forEach(([zone, proposal]) => {
+        if (combinedProposals[zone]) {
+          combinedProposals[zone] = `${proposal} | ${combinedProposals[zone]}`;
+        } else {
+          combinedProposals[zone] = proposal;
+        }
+      });
     }
 
-    return baseProposals;
-  }, [t, hasGunningData, gunningRepairProposals]);
+    // Add gunning proposals
+    if (hasGunningData) {
+      Object.entries(gunningRepairProposals).forEach(([zone, proposal]) => {
+        if (combinedProposals[zone]) {
+          combinedProposals[zone] = `${combinedProposals[zone]} | ${proposal}`;
+        } else {
+          combinedProposals[zone] = proposal;
+        }
+      });
+    }
 
+    return combinedProposals;
+  }, [t, hasGunningData, gunningRepairProposals, hasThicknessData, thicknessRepairProposals]);
+
+  // 🔄 UPDATED: Enhanced thickness graphs with real data from ThicknessScreen
   const thicknessGraphs = useMemo(() => {
-    return {
+    const defaultGraphs = {
       Bricks: [
         { day: "Day 1", thickness: 90 },
         { day: "Day 5", thickness: 85 },
@@ -298,7 +562,31 @@ const LidarVisualizer = () => {
         { day: "Day 10", thickness: 66 },
       ],
     };
-  }, []);
+
+    // Use real thickness data if available
+    if (hasThicknessData && thicknessData.comprehensiveAnalysis?.zoneAnalysis) {
+      const realGraphs = {};
+      
+      thicknessData.comprehensiveAnalysis.zoneAnalysis.forEach(zone => {
+        const zoneName = zone.zone === 'Initial bricks' ? 'Bricks' : 
+                        zone.zone === 'Slag line' ? 'Slag Line' : 
+                        zone.zone === 'Slopes' ? 'Screed' : zone.zone;
+        
+        if (zone.evolution && zone.evolution.length > 0) {
+          realGraphs[zoneName] = zone.evolution.map((data, index) => ({
+            day: `File ${index + 1}`,
+            thickness: data.averageThickness,
+            fileName: data.fileName,
+            date: data.date
+          }));
+        }
+      });
+
+      return Object.keys(realGraphs).length > 0 ? realGraphs : defaultGraphs;
+    }
+
+    return defaultGraphs;
+  }, [hasThicknessData, thicknessData.comprehensiveAnalysis]);
 
   const handleScreenChange = useCallback((screen) => {
     setActiveScreen(screen);
@@ -307,45 +595,100 @@ const LidarVisualizer = () => {
     setSelectedArea(null);
   }, []);
 
-  // 🔄 UPDATED: Sidebar props with gunning status for Daily Report
+  // 🔄 UPDATED: Sidebar props with both gunning and thickness status
+  // const sidebarProps = useMemo(
+  //   () => ({
+  //     onStartCycle: handleStartCycle,
+  //     onStopCycle: handleStopCycle,
+  //     onResetCycle: handleResetCycle,
+  //     onSetTemplate: handleSetTemplate,
+  //     onResetAlarms: handleResetAlarms,
+  //     onScreenChange: handleScreenChange,
+  //     isCycling,
+  //     progress,
+  //     isUiDisabled,
+  //     templateData,
+  //     alarmState,
+  //     selectedFile,
+  //     selectedFurnace,
+  //     setSelectedFurnace: setSelectedFurnace || (() => {}),
+  //     onCreateReportClick: () => setIsReportDialogOpen(true),
+  //     // 🆕 NEW: Gunning data status for sidebar info
+  //     gunningData: hasGunningData ? gunningData : null,
+  //     // 🆕 NEW: Thickness data status for sidebar info
+  //     thicknessData: hasThicknessData ? thicknessData : null,
+  //     // 🆕 NEW: Combined analysis status
+  //     combinedAnalysisData: combinedAnalysisData,
+  //   }),
+  //   [
+  //     handleStartCycle,
+  //     handleStopCycle,
+  //     handleResetCycle,
+  //     handleSetTemplate,
+  //     handleResetAlarms,
+  //     handleScreenChange,
+  //     isCycling,
+  //     progress,
+  //     isUiDisabled,
+  //     templateData,
+  //     alarmState,
+  //     selectedFile,
+  //     selectedFurnace,
+  //     hasGunningData,
+  //     gunningData,
+  //     hasThicknessData,
+  //     thicknessData,
+  //     combinedAnalysisData,
+  //   ]
+  // );
   const sidebarProps = useMemo(
-    () => ({
-      onStartCycle: handleStartCycle,
-      onStopCycle: handleStopCycle,
-      onResetCycle: handleResetCycle,
-      onSetTemplate: handleSetTemplate,
-      onResetAlarms: handleResetAlarms,
-      onScreenChange: handleScreenChange,
-      isCycling,
-      progress,
-      isUiDisabled,
-      templateData,
-      alarmState,
-      selectedFile,
-      selectedFurnace,
-      setSelectedFurnace: setSelectedFurnace || (() => {}),
-      onCreateReportClick: () => setIsReportDialogOpen(true),
-      // 🆕 NEW: Gunning data status for sidebar info
-      gunningData: hasGunningData ? gunningData : null,
-    }),
-    [
-      handleStartCycle,
-      handleStopCycle,
-      handleResetCycle,
-      handleSetTemplate,
-      handleResetAlarms,
-      handleScreenChange,
-      isCycling,
-      progress,
-      isUiDisabled,
-      templateData,
-      alarmState,
-      selectedFile,
-      selectedFurnace,
-      hasGunningData,
-      gunningData,
-    ]
-  );
+  () => ({
+    onStartCycle: handleStartCycle,
+    onStopCycle: handleStopCycle,
+    onResetCycle: handleResetCycle,
+    onSetTemplate: handleSetTemplate,
+    onResetAlarms: handleResetAlarms,
+    onScreenChange: handleScreenChange,
+    isCycling,
+    progress,
+    isUiDisabled,
+    templateData,
+    alarmState,
+    selectedFile,
+    selectedFurnace,
+    setSelectedFurnace: setSelectedFurnace || (() => {}),
+    onCreateReportClick: () => setIsReportDialogOpen(true),
+    // 🆕 NEW: Pass activeScreen for intelligent download detection
+    activeScreen: activeScreen,
+    // 🆕 NEW: Gunning data status for sidebar info and download
+    gunningData: hasGunningData ? gunningData : null,
+    // 🆕 NEW: Thickness data status for sidebar info and download
+    thicknessData: hasThicknessData ? thicknessData : null,
+    // 🆕 NEW: Combined analysis status
+    combinedAnalysisData: combinedAnalysisData,
+  }),
+  [
+    handleStartCycle,
+    handleStopCycle,
+    handleResetCycle,
+    handleSetTemplate,
+    handleResetAlarms,
+    handleScreenChange,
+    isCycling,
+    progress,
+    isUiDisabled,
+    templateData,
+    alarmState,
+    selectedFile,
+    selectedFurnace,
+    activeScreen, // 🆕 ADD this dependency
+    hasGunningData,
+    gunningData,
+    hasThicknessData,
+    thicknessData,
+    combinedAnalysisData,
+  ]
+);
 
   const threeSceneProps = useMemo(
     () => ({
@@ -423,7 +766,7 @@ const LidarVisualizer = () => {
     ]
   );
 
-  // 🔄 UPDATED: Enhanced renderScreenContent with gunning integration
+  // 🔄 UPDATED: Enhanced renderScreenContent with both gunning and thickness integration
   const renderScreenContent = useMemo(() => {
     const screenProps = {
       fileDataCache,
@@ -437,7 +780,13 @@ const LidarVisualizer = () => {
       case "Thicknesses":
         return (
           <ErrorBoundary>
-            <ThicknessesScreen {...screenProps} />
+            <ThicknessesScreen 
+              {...screenProps}
+              // 🆕 NEW: Pass thickness-specific props for LiDAR integration
+              onDataExport={handleThicknessDataExport}
+              onThicknessAnalysis={handleThicknessAnalysis}
+              onCampaignDataUpdate={handleCampaignDataUpdate}
+            />
           </ErrorBoundary>
         );
       case "Profiles":
@@ -466,6 +815,8 @@ const LidarVisualizer = () => {
               onDataUpdate={handleGunningDataUpdate}
               onCaptureScreenshot={captureCanvasScreenshot}
               currentGunningData={gunningData}
+              // 🆕 NEW: Pass thickness data for cross-analysis
+              thicknessData={hasThicknessData ? thicknessData : null}
             />
           </ErrorBoundary>
         );
@@ -481,6 +832,11 @@ const LidarVisualizer = () => {
               gunningData={hasGunningData ? gunningData : null}
               gunningWearImages={gunningWearImages}
               hasGunningAnalysis={hasGunningData}
+              // 🆕 NEW: Pass thickness data to Daily Report
+              thicknessData={hasThicknessData ? thicknessData : null}
+              hasThicknessAnalysis={hasThicknessData}
+              // 🆕 NEW: Pass combined analysis data
+              combinedAnalysisData={combinedAnalysisData}
             />
           </ErrorBoundary>
         );
@@ -492,6 +848,13 @@ const LidarVisualizer = () => {
               thicknessGraphs={thicknessGraphs}
               // 🆕 NEW: Pass gunning data to Campaign Report if needed
               gunningData={hasGunningData ? gunningData : null}
+              // 🆕 NEW: Pass thickness data to Campaign Report
+              thicknessData={hasThicknessData ? thicknessData : null}
+              // 🆕 NEW: Pass combined analysis for comprehensive campaign insights
+              combinedAnalysisData={combinedAnalysisData}
+              // 🆕 NEW: Pass file data cache for campaign analysis
+              fileDataCache={fileDataCache}
+              files={files}
             />
           </ErrorBoundary>
         );
@@ -516,6 +879,13 @@ const LidarVisualizer = () => {
     gunningData,
     hasGunningData,
     gunningWearImages,
+    // 🆕 NEW: Thickness dependencies for integration
+    handleThicknessDataExport,
+    handleThicknessAnalysis,
+    handleCampaignDataUpdate,
+    thicknessData,
+    hasThicknessData,
+    combinedAnalysisData,
   ]);
 
   const loadingElement = useMemo(
@@ -568,6 +938,136 @@ const LidarVisualizer = () => {
       isUiDisabled,
     ]
   );
+
+  // 🆕 NEW: Enhanced analytics panel for debugging and monitoring
+  const analyticsPanel = useMemo(() => {
+    if (!hasThicknessData && !hasGunningData) return null;
+
+    return (
+      <div
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          left: "20px",
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+          color: "white",
+          padding: "12px",
+          borderRadius: "8px",
+          fontSize: "11px",
+          maxWidth: "300px",
+          zIndex: 1000,
+          fontFamily: "monospace",
+        }}
+      >
+        <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
+          🔬 LiDAR Integration Analytics
+        </div>
+        
+        {hasThicknessData && (
+          <div style={{ marginBottom: "6px" }}>
+            📊 Thickness: {thicknessData.cellSelections.size} cells, 
+            {thicknessData.pointSelections.size} points, 
+            {thicknessData.statistics.criticalAreas} critical
+          </div>
+        )}
+        
+        {hasGunningData && (
+          <div style={{ marginBottom: "6px" }}>
+            🔧 Gunning: {Object.keys(gunningData).filter(k => k !== 'screenshots' && gunningData[k]).length} sections analyzed
+          </div>
+        )}
+        
+        {combinedAnalysisData.lastSync && (
+          <div style={{ fontSize: "10px", color: "#ccc" }}>
+            Last sync: {new Date(combinedAnalysisData.lastSync).toLocaleTimeString()}
+          </div>
+        )}
+        
+        {combinedAnalysisData.integrated?.alerts?.length > 0 && (
+          <div style={{ marginTop: "6px", color: "#ff6b6b" }}>
+            ⚠️ {combinedAnalysisData.integrated.alerts.length} alerts
+          </div>
+        )}
+        
+        {combinedAnalysisData.integrated?.recommendations?.length > 0 && (
+          <div style={{ marginTop: "4px", color: "#4ecdc4" }}>
+            💡 {combinedAnalysisData.integrated.recommendations.length} recommendations
+          </div>
+        )}
+      </div>
+    );
+  }, [hasThicknessData, hasGunningData, thicknessData, gunningData, combinedAnalysisData]);
+
+  // 🆕 NEW: Data export functionality for external systems
+  const exportCombinedData = useCallback(() => {
+    const exportData = {
+      timestamp: new Date().toISOString(),
+      source: 'LiDAR_Visualizer',
+      campaign: campaignInfo,
+      files: files.map(f => f.name),
+      selectedFile: selectedFile?.name,
+      analysis: {
+        thickness: hasThicknessData ? {
+          comprehensiveAnalysis: thicknessData.comprehensiveAnalysis,
+          statistics: thicknessData.statistics,
+          cellSelections: Array.from(thicknessData.cellSelections.entries()),
+          campaignTrends: thicknessData.campaignTrends
+        } : null,
+        gunning: hasGunningData ? {
+          bricks: gunningData.bricks,
+          slagLine: gunningData.slagLine,
+          screed: gunningData.screed
+        } : null,
+        combined: combinedAnalysisData.integrated
+      },
+      reports: {
+        thicknessTableData,
+        repairProposals,
+        thicknessGraphs
+      }
+    };
+
+    // Create download
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+      type: 'application/json' 
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lidar_analysis_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log('📤 Combined LiDAR data exported:', exportData);
+  }, [
+    campaignInfo, 
+    files, 
+    selectedFile, 
+    hasThicknessData, 
+    thicknessData, 
+    hasGunningData, 
+    gunningData, 
+    combinedAnalysisData,
+    thicknessTableData,
+    repairProposals,
+    thicknessGraphs
+  ]);
+
+  // 🆕 NEW: Real-time data monitoring and alerts
+  useEffect(() => {
+    if (combinedAnalysisData.integrated?.alerts?.length > 0) {
+      const criticalAlerts = combinedAnalysisData.integrated.alerts.filter(
+        alert => alert.severity === 'high'
+      );
+      
+      if (criticalAlerts.length > 0) {
+        console.warn('🚨 Critical alerts detected:', criticalAlerts);
+        // Here you could trigger notifications, email alerts, etc.
+      }
+    }
+  }, [combinedAnalysisData.integrated?.alerts]);
 
   return (
     <div style={styles.container}>
@@ -631,6 +1131,35 @@ const LidarVisualizer = () => {
                     <ZoomOut size={16} />
                   </button>
                 </div>
+                
+                {/* 🆕 NEW: Export button for combined data */}
+                {(hasThicknessData || hasGunningData) && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "10px",
+                      right: "10px",
+                      zIndex: 10,
+                    }}
+                  >
+                    <button
+                      onClick={exportCombinedData}
+                      style={{
+                        backgroundColor: "#10B981",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        padding: "8px 12px",
+                        cursor: "pointer",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                      }}
+                      title="Export combined LiDAR analysis data"
+                    >
+                      📤 Export Analysis
+                    </button>
+                  </div>
+                )}
               </div>
               {gradientScaleElement}
             </div>
@@ -638,23 +1167,36 @@ const LidarVisualizer = () => {
           {renderScreenContent}
           {thumbnailViewerElement}
           
-          {/* 🔄 UPDATED: Report dialog now includes gunning data in Daily Report */}
+          {/* 🔄 UPDATED: Report dialog now includes both gunning and thickness data status */}
           <ReportDialog
             isOpen={isReportDialogOpen}
             onClose={() => setIsReportDialogOpen(false)}
             onDailyReport={() => {
-              console.log("Switching to DailyReport with gunning data:", hasGunningData);
+              console.log("Switching to DailyReport with combined data:", {
+                hasGunningData,
+                hasThicknessData,
+                combinedAnalysis: !!combinedAnalysisData.integrated
+              });
               setActiveScreen("DailyReport");
               setIsReportDialogOpen(false);
             }}
             onCampaignReport={() => {
-              console.log("Switching to CampaignReport");
+              console.log("Switching to CampaignReport with enhanced data:", {
+                hasThicknessData,
+                thicknessGraphsCount: Object.keys(thicknessGraphs).length,
+                campaignTrendsCount: thicknessData.campaignTrends.length
+              });
               setActiveScreen("CampaignReport");
               setIsReportDialogOpen(false);
             }}
-            // 🆕 NEW: Pass gunning status to report dialog
+            // 🆕 NEW: Pass both gunning and thickness status to report dialog
             hasGunningData={hasGunningData}
+            hasThicknessData={hasThicknessData}
+            combinedAnalysisData={combinedAnalysisData}
           />
+          
+          {/* 🆕 NEW: Analytics panel for monitoring data integration */}
+          {analyticsPanel}
         </div>
       </div>
     </div>

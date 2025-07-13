@@ -904,10 +904,21 @@ const LidarVisualizer = () => {
     [selectedFile, files.length, t]
   );
 
-  const gradientScaleElement = useMemo(
+const gradientScaleElement = useMemo(
     () =>
       selectedFile ? (
-        <div style={styles.gradientScale}>
+        <div
+          style={{
+            position: "absolute", // <-- KEY
+            top: "100px", // Adjust as needed
+            right: "-200px",
+            transform: "translateX(-50%)",
+            zIndex: 10, // Make sure it's above the canvas
+            backgroundColor: "rgba(0,0,0,0.6)", // Optional: for readability
+            padding: "4px 8px",
+            borderRadius: "8px",
+          }}
+        >
           <GradientScale />
         </div>
       ) : null,

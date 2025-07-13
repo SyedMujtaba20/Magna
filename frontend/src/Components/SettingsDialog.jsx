@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './SettingsDialog.css';
+import { useTranslation } from "react-i18next";
+import i18n from "i18next";
+
 
 const SettingsDialog = ({ isOpen, onClose }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showBrickSettings, setShowBrickSettings] = useState(false);
+    const { t } = useTranslation();
+  
+    useEffect(() => {
+      const savedLang = localStorage.getItem("language") || "en";
+      i18n.changeLanguage(savedLang);
+    }, []);
   
   // Gradient settings state
   const [gradientSettings, setGradientSettings] = useState([

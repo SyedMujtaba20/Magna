@@ -28,6 +28,8 @@ const Sidebar = ({
   selectedFile,
   onScreenChange,
   onCreateReportClick,
+  // 🆕 NEW: Gunning data prop for Daily Report integration
+  gunningData,
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeScreen, setActiveScreen] = useState("3DView");
@@ -71,6 +73,28 @@ const Sidebar = ({
     // i18n.changeLanguage(savedLang);
   }, [language]);
 
+  // 🆕 NEW: Check if gunning data exists for Daily Report enhancement
+  const hasGunningData = useMemo(() => {
+    return !!(gunningData?.bricks || gunningData?.slagLine || gunningData?.screed);
+  }, [gunningData]);
+
+  // 🆕 NEW: Calculate total repair areas from gunning data
+  const totalRepairAreas = useMemo(() => {
+    if (!hasGunningData) return 0;
+    
+    let total = 0;
+    if (gunningData.bricks?.repairProposal?.areas) {
+      total += gunningData.bricks.repairProposal.areas.length;
+    }
+    if (gunningData.slagLine?.repairProposal?.areas) {
+      total += gunningData.slagLine.repairProposal.areas.length;
+    }
+    if (gunningData.screed?.repairProposal?.areas) {
+      total += gunningData.screed.repairProposal.areas.length;
+    }
+    return total;
+  }, [gunningData, hasGunningData]);
+
   // Memoized handlers
   const handleDialogOpen = useCallback(() => setIsDialogOpen(true), []);
   const handleDialogClose = useCallback(() => setIsDialogOpen(false), []);
@@ -97,6 +121,16 @@ const Sidebar = ({
     handleScreenChange("Gunning");
     handleDialogOpen();
   }, [handleScreenChange, handleDialogOpen]);
+
+  // 🆕 NEW: Enhanced report click handler with gunning data awareness
+  const handleReportClick = useCallback(() => {
+    if (hasGunningData) {
+      console.log('📊 Creating Daily Report with gunning analysis data');
+    } else {
+      console.log('📋 Creating standard Daily Report');
+    }
+    onCreateReportClick();
+  }, [onCreateReportClick, hasGunningData]);
 
   // Memoized progress bar component
   const progressBar = useMemo(
@@ -197,7 +231,7 @@ const Sidebar = ({
     [alarmState.robot, alarmState.variator, t]
   );
 
-  // Memoized info box content
+  // 🔄 UPDATED: Enhanced info box content with gunning data status
   const infoBoxContent = useMemo(
     () => (
       <div className="info-box">
@@ -210,9 +244,54 @@ const Sidebar = ({
             {t("measurementInfo.template")}: {templateData.name}
           </p>
         )}
+        
+        {/* 🆕 NEW: Gunning data status for Daily Report */}
+        {/* {hasGunningData && (
+          <div style={{
+            marginTop: "12px",
+            padding: "10px",
+            backgroundColor: "#d4edda",
+            borderRadius: "6px",
+            border: "1px solid #c3e6cb"
+          }}>
+            <p style={{ 
+              fontSize: "12px", 
+              margin: "0 0 4px 0", 
+              color: "#155724",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px"
+            }}>
+              🔧 Gunning Analysis Ready
+            </p>
+            <div style={{ 
+              fontSize: "11px", 
+              color: "#155724",
+              lineHeight: "1.3"
+            }}>
+              {gunningData.bricks && (
+                <div>• Bricks: {gunningData.bricks.repairProposal?.areas?.length || 0} areas</div>
+              )}
+              {gunningData.slagLine && (
+                <div>• Slag Line: {gunningData.slagLine.repairProposal?.areas?.length || 0} areas</div>
+              )}
+              {gunningData.screed && (
+                <div>• Screed: {gunningData.screed.repairProposal?.areas?.length || 0} areas</div>
+              )}
+              <div style={{ 
+                marginTop: "4px", 
+                fontWeight: "bold", 
+                color: "#0f5132" 
+              }}>
+                Total: {totalRepairAreas} repair areas
+              </div>
+            </div>
+          </div>
+        )} */}
       </div>
     ),
-    [templateData, t]
+    [templateData, t, hasGunningData, gunningData, totalRepairAreas]
   );
 
   return (
@@ -289,21 +368,64 @@ const Sidebar = ({
             </div>
           </div>
 
-          {/* Actions */}
+          {/* 🔄 UPDATED: Enhanced Actions section with gunning data awareness */}
           <div>
             <h3 className="section-title">{t("actions")}</h3>
             <div className="button-group">
+              {/* 🔄 UPDATED: Enhanced Create Report button */}
               <button
                 className="btn"
-                onClick={onCreateReportClick}
+                onClick={handleReportClick}
                 disabled={buttonStates.action.disabled}
+                style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+                title={hasGunningData ? 
+                  `Create Daily Report with gunning analysis (${totalRepairAreas} repair areas)` : 
+                  "Create standard Daily Report"
+                }
               >
-                <FileText size={16} /> {t("report.create")}
+                <FileText size={16} /> 
+                {t("report.create")}
+                {/* 🆕 NEW: Gunning data indicator */}
+                {hasGunningData && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-2px',
+                    right: '-2px',
+                    width: '8px',
+                    height: '8px',
+                    backgroundColor: '#28a745',
+                    borderRadius: '50%',
+                    border: '1px solid white'
+                  }} />
+                )}
               </button>
+              
               <button className="btn" disabled={buttonStates.action.disabled}>
                 <Download size={16} /> {t("report.downloadImages")}
               </button>
             </div>
+
+            {/* 🆕 NEW: Gunning data enhancement notice */}
+            {/* {hasGunningData && (
+              <div style={{
+                marginTop: "8px",
+                padding: "8px",
+                backgroundColor: "#fff3cd",
+                borderRadius: "4px",
+                border: "1px solid #ffeaa7",
+                fontSize: "11px",
+                color: "#856404",
+                textAlign: "center"
+              }}>
+                📊 Daily Report will include gunning analysis
+              </div>
+            )} */}
           </div>
 
           {infoBoxContent}

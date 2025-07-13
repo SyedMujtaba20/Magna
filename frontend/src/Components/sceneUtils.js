@@ -12,7 +12,12 @@ const initializeScene = (
   gridMeshRef,
   setIsInitialized
 ) => {
-  if (!canvasRef.current) return;
+  // if (!canvasRef.current) return;
+  if (!canvasRef.current) {
+  console.warn("[initializeScene] canvasRef is null. Skipping setup but marking initialized to prevent UI hang.");
+  setTimeout(() => setIsInitialized(true), 300);  // Prevent stuck UI
+  return () => {};
+}
 
   console.log("[Three.js] Initializing renderer and scene.");
   const canvas = canvasRef.current;

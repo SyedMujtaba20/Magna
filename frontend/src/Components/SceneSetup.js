@@ -3,6 +3,8 @@ import * as THREE from "three";
 export const setupThreeScene = (canvasRef, sceneRef, rendererRef, cameraRef, animationIdRef, dataBounds) => {
   if (!canvasRef.current) return;
   
+  console.log("[SceneSetup] Setting up scene with dataBounds:", dataBounds);
+  
   const canvas = canvasRef.current;
   const scene = sceneRef.current;
   scene.clear();
@@ -12,10 +14,25 @@ export const setupThreeScene = (canvasRef, sceneRef, rendererRef, cameraRef, ani
   const width = rect.width || 400;
   const height = rect.height || 400;
 
+  console.log("[SceneSetup] Canvas dimensions:", { width, height });
+
+  // Calculate the center point of your furnace data (X and Z only)
+  const centerX = (dataBounds.minX + dataBounds.maxX) / 2;
+  const centerZ = (dataBounds.minZ + dataBounds.maxZ) / 2;
+  // Don't use the Y center for camera positioning since points are rendered at Y=0.1
+
+  console.log("[SceneSetup] Data center X,Z:", { centerX, centerZ });
+
   const aspect = width / height;
   const dataWidth = Math.abs(dataBounds.maxX - dataBounds.minX) || 100;
   const dataHeight = Math.abs(dataBounds.maxZ - dataBounds.minZ) || 100;
-  const frustumSize = Math.max(dataWidth, dataHeight) * 1.2;
+  
+  console.log("[SceneSetup] Data dimensions:", { dataWidth, dataHeight });
+  
+  // Increase frustum size for better visibility and add padding
+  const frustumSize = Math.max(dataWidth, dataHeight) * 1.4;
+  
+  console.log("[SceneSetup] Frustum size:", frustumSize);
   
   const camera = new THREE.OrthographicCamera(
     (frustumSize * aspect) / -2,
@@ -26,10 +43,15 @@ export const setupThreeScene = (canvasRef, sceneRef, rendererRef, cameraRef, ani
     1000
   );
   
-  camera.position.set(0, 100, 0);
-  camera.lookAt(0, 0, 0);
+  // Position camera above the CENTER of the data at a FIXED height
+  // Use Y=100 instead of centerY since points are rendered at Y=0.1
+  camera.position.set(centerX, 100, centerZ);
+  camera.lookAt(centerX, 0, centerZ); // Look at Y=0, not centerY
   camera.up.set(0, 0, -1);
   cameraRef.current = camera;
+
+  console.log("[SceneSetup] Camera position:", camera.position);
+  console.log("[SceneSetup] Camera looking at:", { x: centerX, y: 0, z: centerZ });
 
   const renderer = new THREE.WebGLRenderer({ 
     canvas, 
@@ -80,7 +102,20 @@ export const setupThreeScene = (canvasRef, sceneRef, rendererRef, cameraRef, ani
 };
 
 export const updateThreeScene = (sceneRef, furnacePoints, horizontalSlice, verticalSlice, dataBounds, getColorForThickness) => {
-  if (furnacePoints.length === 0) return;
+  console.log("[updateThreeScene] Called with:", {
+    furnacePointsLength: furnacePoints.length,
+    horizontalSlice,
+    verticalSlice,
+    dataBounds
+  });
+
+  if (furnacePoints.length === 0) {
+    console.warn("[updateThreeScene] No furnace points provided!");
+    return;
+  }
+
+  // Log first few points to understand data structure
+  console.log("[updateThreeScene] First 3 points:", furnacePoints.slice(0, 3));
 
   const scene = sceneRef.current;
   
@@ -98,23 +133,71 @@ export const updateThreeScene = (sceneRef, furnacePoints, horizontalSlice, verti
     if (obj.material) obj.material.dispose();
   });
 
+  console.log("[updateThreeScene] Removed", objectsToRemove.length, "old objects");
+
   // Sample points for visualization
   const maxDisplayPoints = 20000;
   const step = Math.max(1, Math.ceil(furnacePoints.length / maxDisplayPoints));
   const positions = [];
   const colors = [];
 
+  console.log("[updateThreeScene] Processing points with step:", step);
+
+  let validPointsCount = 0;
+  let minX = Infinity, maxX = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+
   for (let i = 0; i < furnacePoints.length; i += step) {
     const point = furnacePoints[i];
-    const x = point.position?.[0] || point.x || 0;
-    const z = point.position?.[2] || point.z || 0;
-    const thickness = point.thickness || point.y || 0;
     
-    positions.push(x, 0.1, z);
+    // Try different ways to extract coordinates
+    let x, z, thickness;
     
-    const color = getColorForThickness(thickness, dataBounds.minY, dataBounds.maxY);
-    colors.push(color.r, color.g, color.b);
+    if (point.position && Array.isArray(point.position)) {
+      x = point.position[0];
+      z = point.position[2];
+      thickness = point.thickness || point.position[1];
+    } else if (point.x !== undefined && point.z !== undefined) {
+      x = point.x;
+      z = point.z;
+      thickness = point.thickness || point.y || 0;
+    } else if (Array.isArray(point) && point.length >= 3) {
+      x = point[0];
+      z = point[2];
+      thickness = point[3] || point[1];
+    } else {
+      // Log the point structure to understand the data format
+      if (i < 5) {
+        console.log(`[updateThreeScene] Point ${i} structure:`, point);
+      }
+      continue;
+    }
+
+    if (x !== undefined && z !== undefined && thickness !== undefined) {
+      // Render all points at Y=0.1 for top-down view
+      positions.push(x, 0.1, z);
+      
+      // Track actual data bounds
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+      minY = Math.min(minY, thickness);
+      maxY = Math.max(maxY, thickness);
+      
+      const color = getColorForThickness(thickness, dataBounds.minY, dataBounds.maxY);
+      colors.push(color.r, color.g, color.b);
+      validPointsCount++;
+    }
   }
+
+  console.log("[updateThreeScene] Processed points:", {
+    validPointsCount,
+    totalPositions: positions.length / 3,
+    actualDataBounds: { minX, maxX, minZ, maxZ, minY, maxY },
+    providedDataBounds: dataBounds
+  });
 
   if (positions.length > 0) {
     const geometry = new THREE.BufferGeometry();
@@ -122,7 +205,7 @@ export const updateThreeScene = (sceneRef, furnacePoints, horizontalSlice, verti
     geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     
     const material = new THREE.PointsMaterial({ 
-      size: 1.5,
+      size: 2.0, // Good size for visibility
       vertexColors: true,
       sizeAttenuation: false
     });
@@ -130,6 +213,11 @@ export const updateThreeScene = (sceneRef, furnacePoints, horizontalSlice, verti
     const pointsMesh = new THREE.Points(geometry, material);
     pointsMesh.userData.isDataPoint = true;
     scene.add(pointsMesh);
+    
+    console.log("[updateThreeScene] Added points mesh to scene");
+  } else {
+    console.error("[updateThreeScene] No valid positions found!");
+    return;
   }
 
   // Create slice lines - WHITE lines for better visibility
@@ -137,7 +225,7 @@ export const updateThreeScene = (sceneRef, furnacePoints, horizontalSlice, verti
   
   const padding = Math.max(dataBounds.maxX - dataBounds.minX, dataBounds.maxZ - dataBounds.minZ) * 0.1;
   
-  // Horizontal slice line (moving in Z direction)
+  // Horizontal slice line (moving in Z direction) - at Y=0.5 to be visible above points
   const hLineGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(dataBounds.minX - padding, 0.5, horizontalSlice),
     new THREE.Vector3(dataBounds.maxX + padding, 0.5, horizontalSlice),
@@ -146,7 +234,7 @@ export const updateThreeScene = (sceneRef, furnacePoints, horizontalSlice, verti
   hLine.userData.isSliceLine = true;
   scene.add(hLine);
   
-  // Vertical slice line (moving in X direction)
+  // Vertical slice line (moving in X direction) - at Y=0.5 to be visible above points
   const vLineGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(verticalSlice, 0.5, dataBounds.minZ - padding),
     new THREE.Vector3(verticalSlice, 0.5, dataBounds.maxZ + padding),
@@ -154,4 +242,6 @@ export const updateThreeScene = (sceneRef, furnacePoints, horizontalSlice, verti
   const vLine = new THREE.Line(vLineGeometry, whiteLineMaterial);
   vLine.userData.isSliceLine = true;
   scene.add(vLine);
+  
+  console.log("[updateThreeScene] Added slice lines to scene");
 };

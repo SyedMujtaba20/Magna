@@ -32,10 +32,10 @@ const ProfilesScreen = ({
   const [selectedFurnace, setSelectedFurnace] = useState(null);
   const { t } = useTranslation();
 
-   useEffect(() => {
-          const savedLang = localStorage.getItem("language") || "en";
-          i18n.changeLanguage(savedLang);
-        }, []);
+  useEffect(() => {
+    const savedLang = localStorage.getItem("language") || "en";
+    i18n.changeLanguage(savedLang);
+  }, []);
 
   const canvasRef = useRef(null);
   const xSliceCanvasRef = useRef(null);
@@ -153,7 +153,6 @@ const ProfilesScreen = ({
             fontSize: "16px",
           }}
         >
-          {/* No data available. Please select a file with LiDAR data. */}
           {t("lidar.noDataMessage")}
         </div>
       )}
@@ -171,7 +170,6 @@ const ProfilesScreen = ({
             }}
           >
             <label style={{ marginRight: "10px", fontWeight: "bold" }}>
-              {/* Select Furnace: */}
               {t("furnace.selectLabel")}
             </label>
             <select
@@ -211,102 +209,121 @@ const ProfilesScreen = ({
               overflow: "hidden",
             }}
           >
-            {/* Main 3D view - Furnace seen from above */}
+            {/* Main 3D view - Properly centered canvas */}
             <div
               style={{
                 width: "50%",
                 position: "relative",
                 border: "1px solid #ccc",
                 overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "#1a1a1a", // Dark background
               }}
             >
-              <canvas
-                ref={canvasRef}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  display: "block",
-                }}
-                onMouseDown={(e) =>
-                  handleMouseDown(
-                    e,
-                    canvasRef,
-                    cameraRef,
-                    dataBounds,
-                    setDraggingLine,
-                    verticalSlice,
-                    horizontalSlice,
-                    isUiDisabled
-                  )
-                }
-                onMouseMove={(e) =>
-                  handleMouseMove(
-                    e,
-                    canvasRef,
-                    dataBounds,
-                    draggingLine,
-                    isUiDisabled,
-                    setHorizontalSlice,
-                    setVerticalSlice,
-                    horizontalSlice,
-                    verticalSlice
-                  )
-                }
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-              />
-
-              {/* Orientation labels */}
               <div
                 style={{
-                  position: "absolute",
-                  top: 10,
-                  left: 10,
-                  color: "white",
-                  backgroundColor: "rgba(0,0,0,0.7)",
-                  padding: "4px 8px",
+                  width: "95%", // Increased to use more space
+                  height: "95%", // Increased to use more space
+                  position: "relative",
+                  border: "1px solid #555",
                   borderRadius: "4px",
-                  fontSize: "12px",
-                  fontWeight: "bold",
+                  overflow: "hidden",
+                  backgroundColor: "#000",
                 }}
               >
-                Z ↑ | X →
-              </div>
+                <canvas
+                  ref={canvasRef}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    display: "block",
+                  }}
+                  onMouseDown={(e) =>
+                    handleMouseDown(
+                      e,
+                      canvasRef,
+                      cameraRef,
+                      dataBounds,
+                      setDraggingLine,
+                      verticalSlice,
+                      horizontalSlice,
+                      isUiDisabled
+                    )
+                  }
+                  onMouseMove={(e) =>
+                    handleMouseMove(
+                      e,
+                      canvasRef,
+                      dataBounds,
+                      draggingLine,
+                      isUiDisabled,
+                      setHorizontalSlice,
+                      setVerticalSlice,
+                      horizontalSlice,
+                      verticalSlice
+                    )
+                  }
+                  onMouseUp={() => handleMouseUp(setDraggingLine, canvasRef)}
+                  onMouseLeave={() => handleMouseLeave(setDraggingLine, canvasRef)}
+                />
 
-              {/* Furnace info */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  color: "white",
-                  backgroundColor: "rgba(0,0,0,0.7)",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  fontSize: "12px",
-                }}
-              >
-                {selectedFurnace?.name || "No Furnace Selected"}
-                <br />
-                <small>{furnacePoints.length} points</small>
-              </div>
+                {/* Orientation labels */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    left: 10,
+                    color: "white",
+                    backgroundColor: "rgba(0,0,0,0.8)",
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    border: "1px solid #555",
+                  }}
+                >
+                  Z ↑ | X →
+                </div>
 
-              {/* Slice position info */}
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 10,
-                  left: 10,
-                  color: "white",
-                  backgroundColor: "rgba(0,0,0,0.7)",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  fontSize: "11px",
-                }}
-              >
-                Horizontal: {horizontalSlice.toFixed(1)}
-                <br />
-                Vertical: {verticalSlice.toFixed(1)}
+                {/* Furnace info */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 10,
+                    right: 10,
+                    color: "white",
+                    backgroundColor: "rgba(0,0,0,0.8)",
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    border: "1px solid #555",
+                  }}
+                >
+                  {selectedFurnace?.name || "No Furnace Selected"}
+                  <br />
+                  <small>{furnacePoints.length} points</small>
+                </div>
+
+                {/* Slice position info */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 10,
+                    left: 10,
+                    color: "white",
+                    backgroundColor: "rgba(0,0,0,0.8)",
+                    padding: "6px 10px",
+                    borderRadius: "4px",
+                    fontSize: "11px",
+                    border: "1px solid #555",
+                  }}
+                >
+                  Horizontal: {horizontalSlice.toFixed(1)}
+                  <br />
+                  Vertical: {verticalSlice.toFixed(1)}
+                </div>
               </div>
             </div>
 
@@ -321,7 +338,7 @@ const ProfilesScreen = ({
               }}
             >
               {/* Color Legend */}
-              {/* <div
+              <div
                 style={{
                   height: "40px",
                   background:
@@ -336,35 +353,12 @@ const ProfilesScreen = ({
                   fontWeight: "bold",
                 }}
               >
-                <span>Low Wear: {dataBounds.minY.toFixed(1)}</span>
-                <span
-                  style={{ color: "white", textShadow: "1px 1px 2px black" }}
-                >
-                  Furnace Lining Thickness
+                <span>{t("thickness.lowWear")}: {dataBounds.minY.toFixed(1)}</span>
+                <span style={{ color: "white", textShadow: "1px 1px 2px black" }}>
+                  {t("thickness.title")}
                 </span>
-                <span>High Wear: {dataBounds.maxY.toFixed(1)}</span>
-              </div> */}
-              <div
-  style={{
-    height: "40px",
-    background:
-      "linear-gradient(to right, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000)",
-    position: "relative",
-    borderBottom: "1px solid #ccc",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0 10px",
-    fontSize: "12px",
-    fontWeight: "bold",
-  }}
->
-  <span>{t("thickness.lowWear")}: {dataBounds.minY.toFixed(1)}</span>
-  <span style={{ color: "white", textShadow: "1px 1px 2px black" }}>
-    {t("thickness.title")}
-  </span>
-  <span>{t("thickness.highWear")}: {dataBounds.maxY.toFixed(1)}</span>
-</div>
+                <span>{t("thickness.highWear")}: {dataBounds.maxY.toFixed(1)}</span>
+              </div>
 
               {/* Y Profile (Vertical Slice) */}
               <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
@@ -385,12 +379,7 @@ const ProfilesScreen = ({
                     backgroundColor: "rgba(255,255,255,0.9)",
                     padding: "4px 8px",
                     borderRadius: "4px",
-                    // Grammar fix suggestion: Consider replacing
                     fontSize: "12px",
-                    //  " with "
-                    // fontSize: "12px",
-                    // to maintain consistency with single quotes used elsewhere in the style object.
-
                     fontWeight: "bold",
                     border: "1px solid #ccc",
                   }}

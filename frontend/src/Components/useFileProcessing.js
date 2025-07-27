@@ -16,6 +16,8 @@ const useFileProcessing = ({
   setAlarmState,
   selectedFile,
   fileDataCache,
+  // 🔧 CONDITIONAL: Only use activeScreen when explicitly provided
+  activeScreen = null,
 }) => {
   const cycleIntervalRef = useRef(null);
 
@@ -44,10 +46,37 @@ const useFileProcessing = ({
       for (const file of fileList) {
         try {
           const content = await readFileAsText(file);
-          const { points, minThickness, maxThickness } = parseCSV(content);
+          
+          // 🔧 CONDITIONAL: Only apply Gunning parsing if explicitly on Gunning screen
+          let parseOptions = undefined; // Default to no options (original behavior)
+          
+          if (activeScreen === 'Gunning') {
+            // Only use Gunning-specific options when actually on Gunning screen
+            parseOptions = {
+              screen: 'Gunning',
+              forGunning: true
+            };
+            console.log(`📊 Using Gunning parsing for ${file.name}`);
+          } else {
+            console.log(`📊 Using standard parsing for ${file.name} (screen: ${activeScreen || 'default'})`);
+          }
+          
+          // 🔧 FIXED: Call parseCSV conditionally
+          const { points, minThickness, maxThickness } = parseOptions 
+            ? parseCSV(content, parseOptions)  // Gunning mode
+            : parseCSV(content);               // Standard mode (original behavior)
+          
           globalMin = Math.min(globalMin, minThickness);
           globalMax = Math.max(globalMax, maxThickness);
-          cache.set(file.name, { points, minThickness, maxThickness });
+          cache.set(file.name, { 
+            points, 
+            minThickness, 
+            maxThickness,
+            // 🆕 TRACK: Remember which parsing mode was used
+            parsedWith: activeScreen === 'Gunning' ? 'Gunning' : 'Standard',
+            timestamp: Date.now()
+          });
+          
         } catch (error) {
           console.error(`Error parsing file ${file.name}:`, error);
         }
@@ -62,6 +91,144 @@ const useFileProcessing = ({
       setSelectedFile(fileList[0]);
       setLoading(false);
     }
+  };
+
+  // 🆕 SAFE: Re-parse files ONLY when switching TO Gunning screen from another screen
+  const handleScreenSpecificReparse = async (newScreen) => {
+    // 🔧 CRITICAL: Only re-parse if switching TO Gunning AND files exist AND not already parsed with Gunning
+    if (newScreen === 'Gunning' && files.length > 0) {
+      
+      // Check if files are already parsed with Gunning format
+      const firstFile = files[0];
+      const existingData = fileDataCache.get(firstFile.name);
+      
+      if (existingData?.parsedWith === 'Gunning') {
+        console.log("📊 Files already parsed with Gunning format, skipping re-parse");
+        return; // Skip re-parsing if already in Gunning format
+      }
+      
+      console.log("🔄 Re-parsing files for Gunning screen compatibility...");
+      
+      setLoading(true);
+      let globalMin = Infinity;
+      let globalMax = -Infinity;
+      const cache = new Map();
+
+      for (const file of files) {
+        try {
+          const content = await readFileAsText(file);
+          
+          // 🔧 GUNNING: Parse with Gunning-specific options
+          const parseOptions = {
+            screen: 'Gunning',
+            forGunning: true
+          };
+          
+          const { points, minThickness, maxThickness } = parseCSV(content, parseOptions);
+          
+          globalMin = Math.min(globalMin, minThickness);
+          globalMax = Math.max(globalMax, maxThickness);
+          cache.set(file.name, { 
+            points, 
+            minThickness, 
+            maxThickness,
+            parsedWith: 'Gunning', // Mark as Gunning-parsed
+            timestamp: Date.now()
+          });
+          
+          console.log(`🔧 Re-parsed ${file.name} for Gunning: ${points.length} points`);
+          
+        } catch (error) {
+          console.error(`Error re-parsing file ${file.name} for Gunning:`, error);
+          // 🔧 FALLBACK: Keep original data if re-parsing fails
+          const originalData = fileDataCache.get(file.name);
+          if (originalData) {
+            cache.set(file.name, originalData);
+          }
+        }
+      }
+
+      setGlobalDataRange({
+        min: globalMin,
+        max: globalMax,
+        isInitialized: true,
+      });
+      setFileDataCache(cache);
+      setLoading(false);
+      
+      console.log("✅ Files re-parsed for Gunning screen compatibility");
+    }
+  };
+
+  // 🆕 SAFE: Re-parse files when switching AWAY from Gunning back to standard screens
+  const handleStandardReparse = async (newScreen) => {
+    // 🔧 CRITICAL: Only re-parse if switching FROM Gunning to another screen
+    if (newScreen !== 'Gunning' && files.length > 0) {
+      
+      // Check if files are currently parsed with Gunning format
+      const firstFile = files[0];
+      const existingData = fileDataCache.get(firstFile.name);
+      
+      if (existingData?.parsedWith !== 'Gunning') {
+        console.log("📊 Files already in standard format, skipping re-parse");
+        return; // Skip if not currently in Gunning format
+      }
+      
+      console.log("🔄 Re-parsing files back to standard format...");
+      
+      setLoading(true);
+      let globalMin = Infinity;
+      let globalMax = -Infinity;
+      const cache = new Map();
+
+      for (const file of files) {
+        try {
+          const content = await readFileAsText(file);
+          
+          // 🔧 STANDARD: Parse with original/standard logic (no options)
+          const { points, minThickness, maxThickness } = parseCSV(content);
+          
+          globalMin = Math.min(globalMin, minThickness);
+          globalMax = Math.max(globalMax, maxThickness);
+          cache.set(file.name, { 
+            points, 
+            minThickness, 
+            maxThickness,
+            parsedWith: 'Standard', // Mark as standard-parsed
+            timestamp: Date.now()
+          });
+          
+          console.log(`🔧 Re-parsed ${file.name} to standard: ${points.length} points`);
+          
+        } catch (error) {
+          console.error(`Error re-parsing file ${file.name} to standard:`, error);
+        }
+      }
+
+      setGlobalDataRange({
+        min: globalMin,
+        max: globalMax,
+        isInitialized: true,
+      });
+      setFileDataCache(cache);
+      setLoading(false);
+      
+      console.log("✅ Files re-parsed back to standard format");
+    }
+  };
+
+  // 🆕 SMART: Combined screen change handler
+  const handleScreenChange = async (newScreen, previousScreen) => {
+    console.log(`🔄 Screen changing from ${previousScreen || 'unknown'} to ${newScreen}`);
+    
+    if (newScreen === 'Gunning' && previousScreen !== 'Gunning') {
+      // Switching TO Gunning screen
+      await handleScreenSpecificReparse(newScreen);
+    } else if (newScreen !== 'Gunning' && previousScreen === 'Gunning') {
+      // Switching FROM Gunning screen
+      await handleStandardReparse(newScreen);
+    }
+    // If staying within non-Gunning screens or staying in Gunning, do nothing
   };
 
   const handleStartCycle = () => {
@@ -150,6 +317,10 @@ const useFileProcessing = ({
     handleResetCycle,
     handleSetTemplate,
     handleResetAlarms,
+    // 🆕 ENHANCED: Export both specific and combined functions
+    handleScreenSpecificReparse,
+    handleStandardReparse,
+    handleScreenChange, // 🔧 RECOMMENDED: Use this for screen transitions
   };
 };
 

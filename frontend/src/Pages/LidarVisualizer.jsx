@@ -225,29 +225,57 @@ const LidarVisualizer = () => {
   const { mainCanvasRef, containerRef, zoomIn, zoomOut } =
     useControls(isUiDisabled);
 
-  const {
-    handleFolderChange,
-    handleSetTemplate,
-    handleStartCycle,
-    handleStopCycle,
-    handleResetCycle,
-    handleResetAlarms,
-  } = useFileProcessing({
-    files,
-    setFiles,
-    setSelectedFile,
-    setGlobalDataRange,
-    setFileDataCache,
-    setPreviewScenes,
-    setLoading,
-    setIsCycling,
-    setIsUiDisabled,
-    setProgress,
-    setTemplateData,
-    setAlarmState,
-    selectedFile,
-    fileDataCache,
-  });
+  // const {
+  //   handleFolderChange,
+  //   handleSetTemplate,
+  //   handleStartCycle,
+  //   handleStopCycle,
+  //   handleResetCycle,
+  //   handleResetAlarms,
+  // } = useFileProcessing({
+  //   files,
+  //   setFiles,
+  //   setSelectedFile,
+  //   setGlobalDataRange,
+  //   setFileDataCache,
+  //   setPreviewScenes,
+  //   setLoading,
+  //   setIsCycling,
+  //   setIsUiDisabled,
+  //   setProgress,
+  //   setTemplateData,
+  //   setAlarmState,
+  //   selectedFile,
+  //   fileDataCache,
+  // });
+
+const {
+  handleFolderChange,
+  handleSetTemplate,
+  handleStartCycle,
+  handleStopCycle,
+  handleResetCycle,
+  handleResetAlarms,
+  // 🆕 NEW: Get the enhanced screen change function
+  handleScreenChange: handleFileProcessingScreenChange,
+} = useFileProcessing({
+  files,
+  setFiles,
+  setSelectedFile,
+  setGlobalDataRange,
+  setFileDataCache,
+  setPreviewScenes,
+  setLoading,
+  setIsCycling,
+  setIsUiDisabled,
+  setProgress,
+  setTemplateData,
+  setAlarmState,
+  selectedFile,
+  fileDataCache,
+  // 🔧 CRITICAL: Pass current active screen for parsing decisions
+  activeScreen,
+});
 
   // 🆕 NEW: Handle gunning data updates from GunningScreen
   const handleGunningDataUpdate = useCallback((section, data, screenshot = null) => {
@@ -543,6 +571,24 @@ const LidarVisualizer = () => {
     return combinedProposals;
   }, [t, hasGunningData, gunningRepairProposals, hasThicknessData, thicknessRepairProposals]);
 
+
+  useEffect(() => {
+  console.log(`📊 Active screen changed to: ${activeScreen}`);
+  
+  // Debug file data format when switching screens
+  if (selectedFile && fileDataCache.has(selectedFile.name)) {
+    const data = fileDataCache.get(selectedFile.name);
+    console.log(`📊 File data format for ${activeScreen}:`, {
+      fileName: selectedFile.name,
+      pointsCount: data.points?.length || 0,
+      parsedWith: data.parsedWith || 'Unknown',
+      hasGunningProperties: data.points?.[0]?.X !== undefined || data.points?.[0]?.x !== undefined,
+      samplePoint: data.points?.[0]
+    });
+  }
+}, [activeScreen, selectedFile, fileDataCache]);
+
+
   // 🔄 UPDATED: Enhanced thickness graphs with real data from ThicknessScreen
   const thicknessGraphs = useMemo(() => {
     const defaultGraphs = {
@@ -588,12 +634,20 @@ const LidarVisualizer = () => {
     return defaultGraphs;
   }, [hasThicknessData, thicknessData.comprehensiveAnalysis]);
 
-  const handleScreenChange = useCallback((screen) => {
-    setActiveScreen(screen);
-    setWearRange("all");
-    setViewMode("3D");
-    setSelectedArea(null);
-  }, []);
+const handleScreenChange = useCallback(async (screen) => {
+  console.log(`🔄 Screen changing from ${activeScreen} to ${screen}`);
+  
+  // 🔧 NEW: Use the file processing screen change handler
+  await handleFileProcessingScreenChange(screen, activeScreen);
+  
+  // Update local state
+  setActiveScreen(screen);
+  setWearRange("all");
+  setViewMode("3D");
+  setSelectedArea(null);
+}, [activeScreen, handleFileProcessingScreenChange]);
+
+
 
   // 🔄 UPDATED: Sidebar props with both gunning and thickness status
   // const sidebarProps = useMemo(
@@ -641,14 +695,14 @@ const LidarVisualizer = () => {
   //     combinedAnalysisData,
   //   ]
   // );
-  const sidebarProps = useMemo(
+const sidebarProps = useMemo(
   () => ({
     onStartCycle: handleStartCycle,
     onStopCycle: handleStopCycle,
     onResetCycle: handleResetCycle,
     onSetTemplate: handleSetTemplate,
     onResetAlarms: handleResetAlarms,
-    onScreenChange: handleScreenChange,
+    onScreenChange: handleScreenChange, // 🔧 Use updated function
     isCycling,
     progress,
     isUiDisabled,
@@ -658,13 +712,9 @@ const LidarVisualizer = () => {
     selectedFurnace,
     setSelectedFurnace: setSelectedFurnace || (() => {}),
     onCreateReportClick: () => setIsReportDialogOpen(true),
-    // 🆕 NEW: Pass activeScreen for intelligent download detection
-    activeScreen: activeScreen,
-    // 🆕 NEW: Gunning data status for sidebar info and download
+    activeScreen: activeScreen, // 🔧 NEW: Pass current screen to sidebar
     gunningData: hasGunningData ? gunningData : null,
-    // 🆕 NEW: Thickness data status for sidebar info and download
     thicknessData: hasThicknessData ? thicknessData : null,
-    // 🆕 NEW: Combined analysis status
     combinedAnalysisData: combinedAnalysisData,
   }),
   [
@@ -673,7 +723,7 @@ const LidarVisualizer = () => {
     handleResetCycle,
     handleSetTemplate,
     handleResetAlarms,
-    handleScreenChange,
+    handleScreenChange, // 🔧 Updated dependency
     isCycling,
     progress,
     isUiDisabled,
@@ -681,7 +731,7 @@ const LidarVisualizer = () => {
     alarmState,
     selectedFile,
     selectedFurnace,
-    activeScreen, // 🆕 ADD this dependency
+    activeScreen, // 🔧 NEW: Added dependency
     hasGunningData,
     gunningData,
     hasThicknessData,
@@ -689,6 +739,7 @@ const LidarVisualizer = () => {
     combinedAnalysisData,
   ]
 );
+
 
   const threeSceneProps = useMemo(
     () => ({
@@ -768,13 +819,13 @@ const LidarVisualizer = () => {
 
   // 🔄 UPDATED: Enhanced renderScreenContent with both gunning and thickness integration
   const renderScreenContent = useMemo(() => {
-    const screenProps = {
-      fileDataCache,
-      selectedFile,
-      selectedFurnace,
-      isUiDisabled,
-      files,
-    };
+ const screenProps = {
+    fileDataCache,
+    selectedFile,
+    selectedFurnace,
+    isUiDisabled,
+    files,
+  };
 
     switch (activeScreen) {
       case "Thicknesses":
@@ -809,15 +860,15 @@ const LidarVisualizer = () => {
       case "Gunning":
         return (
           <ErrorBoundary>
-            <GunningScreen 
-              {...screenProps}
-              // 🆕 NEW: Pass gunning-specific props for Daily Report integration
-              onDataUpdate={handleGunningDataUpdate}
-              onCaptureScreenshot={captureCanvasScreenshot}
-              currentGunningData={gunningData}
-              // 🆕 NEW: Pass thickness data for cross-analysis
-              thicknessData={hasThicknessData ? thicknessData : null}
-            />
+          <GunningScreen 
+            {...screenProps}
+            onDataUpdate={handleGunningDataUpdate}
+            onCaptureScreenshot={captureCanvasScreenshot}
+            currentGunningData={gunningData}
+            thicknessData={hasThicknessData ? thicknessData : null}
+            // 🔧 NEW: Pass screen identifier for any internal logic
+            screenContext="Gunning"
+          />
           </ErrorBoundary>
         );
       case "DailyReport":

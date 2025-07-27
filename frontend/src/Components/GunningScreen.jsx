@@ -1,19 +1,22 @@
-import React, {
-  useState,
-  useRef,
-  useCallback,
-  useMemo,
-  useEffect,
-} from "react";
-import * as THREE from "three";
+import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import i18n from "i18next";
 
-// ⚡ Constants moved outside component for better performance
+// Constants
 const MATERIAL_DENSITY = 2.2;
 const MAX_RENDER_POINTS = 8000;
 const MAX_SAMPLE_POINTS = 15000;
 const MAX_WORN_POINTS = 20000;
+
+// 🏭 Furnace 2D Layout Configuration - Simple rectangular layout
+const FURNACE_2D_CONFIG = {
+  width: 800,
+  height: 600,
+  // Simple 12 panels layout
+  panels: {
+    count: 12,
+    margin: 10
+  }
+};
 
 const SCREEN_CONFIGS = {
   Bricks: {
@@ -22,88 +25,131 @@ const SCREEN_CONFIGS = {
     description: "Analyze brick wear patterns and thickness measurements",
     thresholdLabel: "Brick wear threshold:",
     unit: "cm",
+    furnaceDescription: "Main furnace wall section (middle Z-range)"
   },
   "Slag Line": {
-    title: "SLAG LINE WEAR ANALYSIS",
+    title: "SLAG LINE WEAR ANALYSIS", 
     color: "#FF8800",
     description: "Monitor slag line erosion and damage patterns",
     thresholdLabel: "Slag line wear threshold:",
     unit: "cm",
+    furnaceDescription: "Upper section where molten slag floats (high Z-range)"
   },
   Screed: {
     title: "SCREED WEAR ANALYSIS",
-    color: "#8844FF",
+    color: "#8844FF", 
     description: "Evaluate screed surface condition and wear rates",
     thresholdLabel: "Screed wear threshold:",
     unit: "cm",
+    furnaceDescription: "Bottom floor section of furnace (low Z-range)"
   },
 };
 
-// ⚡ Optimized section detection with memoization
-const detectPointSection = (() => {
-  const cache = new Map();
-
-  return (point, allPoints = []) => {
-    const pos = point.position || [point.x || 0, point.y || 0, point.z || 0];
-    const [x, y, z] = pos;
-
-    // Cache key for memoization
-    const key = `${x.toFixed(1)},${y.toFixed(1)},${z.toFixed(1)}`;
-    if (cache.has(key)) return cache.get(key);
-
-    const distanceFromCenter = Math.sqrt(x * x + y * y);
-    const totalDistance = Math.sqrt(x * x + y * y + z * z);
-    const heightRatio = Math.abs(z) / Math.max(totalDistance, 1);
-
-    let result;
-
-    // Enhanced detection logic for better distribution
-    if (z < -20 || (z < -5 && heightRatio > 0.3) || (Math.abs(z) > 15 && distanceFromCenter < 20)) {
-      result = "Screed";
-    } else if (
-      distanceFromCenter > 25 ||
-      (distanceFromCenter > 15 && Math.abs(z) < 15) ||
-      x > 30 ||
-      y > 30 ||
-      x < -30 ||
-      y < -30 ||
-      (distanceFromCenter > 20 && z > -10 && z < 10)
-    ) {
-      result = "Slag Line";
-    } else {
-      result = "Bricks";
-    }
-
-    // Cache the result
-    if (cache.size > 10000) cache.clear(); // Prevent memory leak
-    cache.set(key, result);
-
-    return result;
-  };
-})();
-
-// ⚡ Optimized enhanced section detection with statistical analysis
+// 🔧 FIXED: Enhanced section detection handling both data formats correctly
+// 🔧 FIXED: Using the working logic from your reference code
+// Enhanced section detection handling both data formats correctly
 const detectPointSectionEnhanced = (() => {
   let cachedPercentiles = null;
   let lastPointsLength = 0;
 
   return (point, allPoints = []) => {
-    const pos = point.position || [point.x || 0, point.y || 0, point.z || 0];
-    const [x, y, z] = pos;
+    let x, y, z, thickness;
+    
+    // 🔧 IMPROVED: Better format detection based on data structure
+    if (point.position) {
+      // Format with position array
+      [x, y, z] = point.position;
+      thickness = point.thickness;
+    } else if (point.X !== undefined && point.Y !== undefined && point.Z !== undefined) {
+      // Header format with named columns (X, Y, Z, etc.)
+      x = point.X;
+      y = point.Y;
+      z = point.Z;
+      thickness = point.Reflectivity || point.thickness; // Use Reflectivity as thickness for header format
+    } else if (point.x !== undefined && point.y !== undefined && point.z !== undefined) {
+      // Format with lowercase named properties
+      x = point.x;
+      y = point.y;
+      z = point.z;
+      thickness = point.thickness;
+    } else if (Array.isArray(point) && point.length >= 4) {
+      // Headerless format: [unknown, x, y, z, thickness]
+      x = point[1];
+      y = point[2];
+      z = point[3];
+      thickness = point[4];
+    } else {
+      console.warn("⚠️ Unknown point format:", point);
+      return "Bricks"; // Default fallback
+    }
+    
+    // Convert to numbers if they're strings
+    x = Number(x) || 0;
+    y = Number(y) || 0;
+    z = Number(z) || 0;
+    thickness = Number(thickness) || 0;
+    
+    // 🔧 FIXED: Handle different data formats correctly using working logic
+    // Handle coordinate scaling - assuming data is in cm initially
+    if (Math.abs(x) > 10000 || Math.abs(y) > 10000) {
+      x = x / 10; // Scale down if needed
+      y = y / 10;
+    }
+    
+    if (Math.abs(x) > 50000 || Math.abs(y) > 50000) {
+      x = x / 10; // mm to cm conversion
+      y = y / 10;
+      z = z / 10;
+    }
 
     const distanceFromCenter = Math.sqrt(x * x + y * y);
 
-    // Use statistical approach for large datasets
+    // Use statistical approach for large datasets (from your working code)
     if (allPoints.length > 1000 && allPoints.length !== lastPointsLength) {
-      // Recalculate percentiles only when point count changes
       const zValues = new Float32Array(allPoints.length);
       const radialValues = new Float32Array(allPoints.length);
 
       for (let i = 0; i < allPoints.length; i++) {
         const p = allPoints[i];
-        const pos = p.position || [p.x || 0, p.y || 0, p.z || 0];
-        zValues[i] = pos[2];
-        radialValues[i] = Math.sqrt(pos[0] * pos[0] + pos[1] * pos[1]);
+        let px, py, pz;
+        
+        // Handle different point formats for percentile calculation
+        if (p.position) {
+          [px, py, pz] = p.position;
+        } else if (p.X !== undefined) {
+          // Header format
+          px = p.X;
+          py = p.Y;
+          pz = p.Z;
+        } else if (p.x !== undefined) {
+          px = p.x;
+          py = p.y;
+          pz = p.z;
+        } else if (Array.isArray(p) && p.length >= 4) {
+          px = p[1];
+          py = p[2];
+          pz = p[3];
+        } else {
+          continue; // Skip invalid points
+        }
+        
+        px = Number(px) || 0;
+        py = Number(py) || 0;
+        pz = Number(pz) || 0;
+        
+        // Apply same scaling logic to all points
+        if (Math.abs(px) > 10000) {
+          px = px / 10;
+          py = py / 10;
+        }
+        if (Math.abs(px) > 50000) {
+          px = px / 10;
+          py = py / 10;
+          pz = pz / 10;
+        }
+        
+        zValues[i] = pz;
+        radialValues[i] = Math.sqrt(px * px + py * py);
       }
 
       zValues.sort((a, b) => a - b);
@@ -115,6 +161,13 @@ const detectPointSectionEnhanced = (() => {
         radialHigh: radialValues[Math.floor(radialValues.length * 0.75)],
       };
       lastPointsLength = allPoints.length;
+      
+      console.log(`🔧 Furnace section thresholds (from working logic):`, {
+        screedMax: `${cachedPercentiles.zLow.toFixed(1)}cm`,
+        brickRange: `${cachedPercentiles.zLow.toFixed(1)}cm to ${cachedPercentiles.zHigh.toFixed(1)}cm`,
+        slagLineMin: `${cachedPercentiles.zHigh.toFixed(1)}cm`,
+        radialThreshold: `${cachedPercentiles.radialHigh.toFixed(1)}cm`
+      });
     }
 
     if (cachedPercentiles) {
@@ -127,18 +180,404 @@ const detectPointSectionEnhanced = (() => {
       }
     }
 
-    // Fallback for smaller datasets
-    if (z < -15) return "Screed";
-    if (distanceFromCenter > 30 || z > 20) return "Slag Line";
-    return "Bricks";
+    // Fallback for smaller datasets (adjusted for cm like in working code)
+    if (z < -150) return "Screed";    // Bottom section
+    if (distanceFromCenter > 300 || z > 200) return "Slag Line";  // Outer/upper section
+    return "Bricks";  // Middle section
   };
 })();
 
-// ⚡ Optimized point sampling
 const samplePoints = (points, maxPoints) => {
   if (points.length <= maxPoints) return points;
   const step = Math.ceil(points.length / maxPoints);
   return points.filter((_, index) => index % step === 0);
+};
+
+// 🔧 FIXED: 2D projection handling both data formats correctly
+// 🔧 FIXED: 2D projection handling both data formats correctl y
+// Enhanced 2D projection function with distinct viewing angles
+// 🔧 FIXED: Enhanced 2D projection with proper centering for Slag Line
+const mapPointTo2D = (point, canvasWidth, canvasHeight, activeScreen, allPoints = []) => {
+  let x, y, z, thickness;
+  
+  // Handle different point formats
+  if (point.position) {
+    [x, y, z] = point.position;
+    thickness = point.thickness;
+  } else if (point.X !== undefined && point.Y !== undefined && point.Z !== undefined) {
+    x = point.X;
+    y = point.Y;
+    z = point.Z;
+    thickness = point.Reflectivity || point.thickness;
+  } else if (point.x !== undefined && point.y !== undefined && point.z !== undefined) {
+    x = point.x;
+    y = point.y;
+    z = point.z;
+    thickness = point.thickness;
+  } else if (Array.isArray(point) && point.length >= 4) {
+    x = point[1];
+    y = point[2];
+    z = point[3];
+    thickness = point[4];
+  } else {
+    console.warn("⚠️ Unknown point format in mapPointTo2D:", point);
+    return { x: 0, y: 0, originalPoint: point, section: "Unknown", radius: 0, angle: 0, z: 0 };
+  }
+  
+  // Convert to numbers
+  x = Number(x) || 0;
+  y = Number(y) || 0;
+  z = Number(z) || 0;
+  thickness = Number(thickness) || 0;
+  
+  // Handle coordinate scaling using the working logic
+  if (Math.abs(x) > 10000 || Math.abs(y) > 10000) {
+    x = x / 10; 
+    y = y / 10;
+  }
+  
+  if (Math.abs(x) > 50000 || Math.abs(y) > 50000) {
+    x = x / 10; 
+    y = y / 10; 
+    z = z / 10; 
+  }
+  
+  // Map to canvas coordinates with margins
+  const margin = 20;
+  const usableWidth = canvasWidth - (margin * 2);
+  const usableHeight = canvasHeight - (margin * 2);
+  
+  let mappedX, mappedY;
+  
+  // 🎯 DIFFERENT VIEWING ANGLES BASED ON SELECTED SCREEN:
+  if (activeScreen === "Screed") {
+    // 👁️ TOP/BOTTOM VIEW for Screed - looking down at furnace floor
+    
+    let xMin = x, xMax = x, yMin = y, yMax = y;
+    
+    // Calculate bounds from all available points for proper centering
+    if (allPoints && allPoints.length > 0) {
+      const sampleSize = Math.min(allPoints.length, 1000); // Sample for performance
+      const step = Math.ceil(allPoints.length / sampleSize);
+      
+      for (let i = 0; i < allPoints.length; i += step) {
+        const p = allPoints[i];
+        let px, py;
+        
+        // Handle different point formats for bounds calculation
+        if (p.position) {
+          [px, py] = p.position;
+        } else if (p.X !== undefined) {
+          px = p.X;
+          py = p.Y;
+        } else if (p.x !== undefined) {
+          px = p.x;
+          py = p.y;
+        } else if (Array.isArray(p) && p.length >= 4) {
+          px = p[1];
+          py = p[2];
+        } else {
+          continue;
+        }
+        
+        px = Number(px) || 0;
+        py = Number(py) || 0;
+        
+        // Apply same scaling logic
+        if (Math.abs(px) > 10000) {
+          px = px / 10;
+          py = py / 10;
+        }
+        if (Math.abs(px) > 50000) {
+          px = px / 10;
+          py = py / 10;
+        }
+        
+        xMin = Math.min(xMin, px);
+        xMax = Math.max(xMax, px);
+        yMin = Math.min(yMin, py);
+        yMax = Math.max(yMax, py);
+      }
+    }
+    
+    // Use actual data bounds with padding for proper centering
+    const xRange = xMax - xMin;
+    const yRange = yMax - yMin;
+    const padding = Math.max(xRange, yRange) * 0.1; // 10% padding
+    
+    // Center the data properly
+    const xCenter = (xMin + xMax) / 2;
+    const yCenter = (yMin + yMax) / 2;
+    const maxRange = Math.max(xRange, yRange) + padding * 2;
+    
+    // Map coordinates to center them properly in the canvas
+    mappedX = margin + ((x - xCenter + maxRange/2) / maxRange) * usableWidth;
+    mappedY = margin + ((y - yCenter + maxRange/2) / maxRange) * usableHeight;
+    
+  } else if (activeScreen === "Bricks" || activeScreen === "Slag Line") {
+    // 👁️ SIDE VIEW for Bricks and Slag Line - FURNACE CROSS-SECTION
+    
+    // Calculate radial distance from center (furnace radius)
+    const radialDistance = Math.sqrt(x * x + y * y);
+    
+    // 🔧 FIXED: Get Z bounds from ALL points, not just current section
+    let zMin = z, zMax = z;
+    let maxRadial = radialDistance;
+    
+    if (allPoints && allPoints.length > 0) {
+      const sampleSize = Math.min(allPoints.length, 2000); // Larger sample for better bounds
+      const step = Math.ceil(allPoints.length / sampleSize);
+      
+      for (let i = 0; i < allPoints.length; i += step) {
+        const p = allPoints[i];
+        let px, py, pz;
+        
+        if (p.position) {
+          [px, py, pz] = p.position;
+        } else if (p.X !== undefined) {
+          px = p.X;
+          py = p.Y;
+          pz = p.Z;
+        } else if (p.x !== undefined) {
+          px = p.x;
+          py = p.y;
+          pz = p.z;
+        } else if (Array.isArray(p) && p.length >= 4) {
+          px = p[1];
+          py = p[2];
+          pz = p[3];
+        } else {
+          continue;
+        }
+        
+        px = Number(px) || 0;
+        py = Number(py) || 0;
+        pz = Number(pz) || 0;
+        
+        // Apply scaling
+        if (Math.abs(px) > 10000) {
+          px = px / 10;
+          py = py / 10;
+        }
+        if (Math.abs(px) > 50000) {
+          px = px / 10;
+          py = py / 10;
+          pz = pz / 10;
+        }
+        
+        zMin = Math.min(zMin, pz);
+        zMax = Math.max(zMax, pz);
+        
+        const pRadial = Math.sqrt(px * px + py * py);
+        maxRadial = Math.max(maxRadial, pRadial);
+      }
+    }
+    
+    // 🔧 FIXED: Proper furnace cross-section mapping with better centering
+    
+    // X-axis: Radial position (center to wall)
+    const normalizedRadial = maxRadial > 0 ? radialDistance / maxRadial : 0;
+    mappedX = margin + normalizedRadial * usableWidth;
+    
+    // 🔧 CRITICAL FIX: Section-specific Z-range mapping for proper centering
+    let sectionZMin, sectionZMax, sectionNormalizedZ;
+    
+    if (activeScreen === "Slag Line") {
+      // 🔧 SLAG LINE SPECIFIC: Calculate Z bounds only for slag line points
+      sectionZMin = zMin;
+      sectionZMax = zMax;
+      
+      // Get slag line specific Z bounds from all points
+      if (allPoints && allPoints.length > 0) {
+        const slagLinePoints = [];
+        const sampleSize = Math.min(allPoints.length, 3000);
+        const step = Math.ceil(allPoints.length / sampleSize);
+        
+        for (let i = 0; i < allPoints.length; i += step) {
+          const p = allPoints[i];
+          const detectedSection = detectPointSectionEnhanced(p, allPoints);
+          
+          if (detectedSection === "Slag Line") {
+            let pz;
+            if (p.position) {
+              pz = p.position[2];
+            } else if (p.Z !== undefined) {
+              pz = p.Z;
+            } else if (p.z !== undefined) {
+              pz = p.z;
+            } else if (Array.isArray(p) && p.length >= 4) {
+              pz = p[3];
+            }
+            
+            if (pz !== undefined) {
+              pz = Number(pz) || 0;
+              if (Math.abs(pz) > 50000) pz = pz / 10;
+              slagLinePoints.push(pz);
+            }
+          }
+        }
+        
+        if (slagLinePoints.length > 0) {
+          sectionZMin = Math.min(...slagLinePoints);
+          sectionZMax = Math.max(...slagLinePoints);
+          console.log(`🔧 Slag Line Z bounds: ${sectionZMin.toFixed(1)} to ${sectionZMax.toFixed(1)} (${slagLinePoints.length} points)`);
+        }
+      }
+      
+      // Calculate normalized Z for slag line section only
+      const sectionZRange = sectionZMax - sectionZMin;
+      if (sectionZRange > 0) {
+        sectionNormalizedZ = (z - sectionZMin) / sectionZRange;
+      } else {
+        sectionNormalizedZ = 0.5;
+      }
+      
+      // 🔧 CENTER THE SLAG LINE: Use section-specific bounds for proper centering
+      const verticalPadding = 0.2; // 20% padding for better visibility
+      const paddedHeight = usableHeight * (1 - 2 * verticalPadding);
+      const yOffset = usableHeight * verticalPadding;
+      
+      // Map using slag line specific Z range - higher Z at top
+      mappedY = margin + yOffset + (1 - sectionNormalizedZ) * paddedHeight;
+      
+    } else if (activeScreen === "Bricks") {
+      // 🔧 BRICKS SPECIFIC: Calculate Z bounds only for brick points
+      sectionZMin = zMin;
+      sectionZMax = zMax;
+      
+      if (allPoints && allPoints.length > 0) {
+        const brickPoints = [];
+        const sampleSize = Math.min(allPoints.length, 3000);
+        const step = Math.ceil(allPoints.length / sampleSize);
+        
+        for (let i = 0; i < allPoints.length; i += step) {
+          const p = allPoints[i];
+          const detectedSection = detectPointSectionEnhanced(p, allPoints);
+          
+          if (detectedSection === "Bricks") {
+            let pz;
+            if (p.position) {
+              pz = p.position[2];
+            } else if (p.Z !== undefined) {
+              pz = p.Z;
+            } else if (p.z !== undefined) {
+              pz = p.z;
+            } else if (Array.isArray(p) && p.length >= 4) {
+              pz = p[3];
+            }
+            
+            if (pz !== undefined) {
+              pz = Number(pz) || 0;
+              if (Math.abs(pz) > 50000) pz = pz / 10;
+              brickPoints.push(pz);
+            }
+          }
+        }
+        
+        if (brickPoints.length > 0) {
+          sectionZMin = Math.min(...brickPoints);
+          sectionZMax = Math.max(...brickPoints);
+        }
+      }
+      
+      const sectionZRange = sectionZMax - sectionZMin;
+      if (sectionZRange > 0) {
+        sectionNormalizedZ = (z - sectionZMin) / sectionZRange;
+      } else {
+        sectionNormalizedZ = 0.5;
+      }
+      
+      const verticalPadding = 0.15;
+      const paddedHeight = usableHeight * (1 - 2 * verticalPadding);
+      const yOffset = usableHeight * verticalPadding;
+      
+      mappedY = margin + yOffset + (1 - sectionNormalizedZ) * paddedHeight;
+    }
+    
+    // Debug logging for section-specific positioning
+    if ((activeScreen === "Slag Line" || activeScreen === "Bricks") && Math.random() < 0.001) {
+      console.log(`🔧 ${activeScreen} positioning: z=${z.toFixed(1)}, sectionZ(${sectionZMin.toFixed(1)},${sectionZMax.toFixed(1)}), sectionNormZ=${sectionNormalizedZ.toFixed(3)}, mappedY=${mappedY.toFixed(1)}, canvas=${canvasHeight}`);
+    }
+    
+  } else {
+    // Fallback - should not reach here
+    mappedX = margin + (x / 1000) * usableWidth;
+    mappedY = margin + (y / 1000) * usableHeight;
+  }
+  
+  return {
+    x: Math.max(margin, Math.min(canvasWidth - margin, mappedX)),
+    y: Math.max(margin, Math.min(canvasHeight - margin, mappedY)),
+    originalPoint: point,
+    section: detectPointSectionEnhanced(point),
+    radius: Math.sqrt(x * x + y * y),
+    angle: Math.atan2(y, x),
+    z: z,
+    thickness: thickness
+  };
+};
+
+
+// 🔧 FIXED: Enhanced point processing that handles both formats correctly
+const processPointData = (rawPoints) => {
+  if (!rawPoints || !Array.isArray(rawPoints)) {
+    console.warn("⚠️ Invalid point data provided");
+    return [];
+  }
+
+  const processedPoints = [];
+  
+  for (let i = 0; i < rawPoints.length; i++) {
+    const rawPoint = rawPoints[i];
+    let processedPoint = {};
+    
+    if (rawPoint.position) {
+      // Format with position array
+      processedPoint = {
+        position: rawPoint.position,
+        thickness: rawPoint.thickness,
+        ...rawPoint
+      };
+    } else if (rawPoint.x !== undefined) {
+      // Format with named properties (header format)
+      processedPoint = {
+        x: rawPoint.x,
+        y: rawPoint.y,
+        z: rawPoint.z,
+        thickness: rawPoint.thickness,
+        ...rawPoint
+      };
+    } else if (Array.isArray(rawPoint) && rawPoint.length >= 4) {
+      // Headerless format: [unknown, x, y, z, thickness]
+      const x = Number(rawPoint[1]) || 0;
+      const y = Number(rawPoint[2]) || 0;
+      const z = Number(rawPoint[3]) || 0;
+      const thickness = Number(rawPoint[4]) || 0;
+      
+      processedPoint = {
+        x: x,
+        y: y,
+        z: z,
+        thickness: thickness,
+        rawIndex: i,
+        originalData: rawPoint,
+        // Add position array for consistency
+        position: [x, y, z]
+      };
+      
+      if (i < 5) { // Log first few points for debugging
+        console.log(`📊 Processed headerless point ${i}: (${x}, ${y}, ${z}, thickness: ${thickness})`);
+      }
+    } else {
+      console.warn(`⚠️ Skipping invalid point at index ${i}:`, rawPoint);
+      continue;
+    }
+    
+    processedPoints.push(processedPoint);
+  }
+  
+  console.log(`✅ Processed ${processedPoints.length} points from ${rawPoints.length} raw points`);
+  return processedPoints;
 };
 
 const GunningScreen = ({
@@ -147,7 +586,6 @@ const GunningScreen = ({
   selectedFile,
   selectedFurnace,
   isUiDisabled,
-  // 🆕 NEW: State lifting props
   onDataUpdate,
   onCaptureScreenshot,
   currentGunningData,
@@ -162,108 +600,20 @@ const GunningScreen = ({
 
   const { t } = useTranslation();
 
-  // ⚡ Single state for all processing flags
   const [processingState, setProcessingState] = useState({
     isProcessing: false,
     showNoDataDialog: false,
     visualizationMode: "all",
   });
 
-  // ⚡ Optimized refs
   const canvasRef = useRef(null);
   const proposalCanvasRef = useRef(null);
-  const sceneRef = useRef(new THREE.Scene());
-  const proposalSceneRef = useRef(new THREE.Scene());
-  const rendererRef = useRef(null);
-  const proposalRendererRef = useRef(null);
-  const cameraRef = useRef(null);
-  const proposalCameraRef = useRef(null);
-  const animationFrameRef = useRef(null);
 
-  useEffect(() => {
-    const savedLang = localStorage.getItem("language") || "en";
-    i18n.changeLanguage(savedLang);
-  }, []);
-
-  // 🔧 FIXED: Enhanced screenshot capture function for Three.js WebGL canvas
-  const captureCurrentScreenshot = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      console.warn('❌ Canvas not available for screenshot');
-      return null;
-    }
-
-    try {
-      // 🔧 FIX: Force a render before capturing
-      if (rendererRef.current && cameraRef.current && sceneRef.current) {
-        console.log('🎨 Forcing render before screenshot...');
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
-      }
-
-      // 🔧 FIX: WebGL canvas needs preserveDrawingBuffer for screenshots
-      const dataUrl = canvas.toDataURL('image/png');
-      
-      // 🔧 FIX: Check if screenshot is actually captured (not blank)
-      if (dataUrl === 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==') {
-        console.warn('⚠️ Screenshot appears to be blank - WebGL context issue');
-        // Try alternative capture method
-        return captureAlternativeScreenshot();
-      }
-
-      console.log('✅ Screenshot captured successfully');
-      return {
-        dataUrl,
-        filename: `${activeScreen.toLowerCase()}_analysis_${Date.now()}.png`,
-        timestamp: Date.now(),
-        section: activeScreen
-      };
-    } catch (error) {
-      console.error('❌ Screenshot capture failed:', error);
-      return captureAlternativeScreenshot();
-    }
-  }, [activeScreen]);
-
-  // 🆕 NEW: Alternative screenshot method using canvas-to-blob
-  const captureAlternativeScreenshot = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-
-    try {
-      // Force render first
-      if (rendererRef.current && cameraRef.current && sceneRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
-      }
-
-      // Create a new canvas with the same dimensions
-      const screenshotCanvas = document.createElement('canvas');
-      const ctx = screenshotCanvas.getContext('2d');
-      screenshotCanvas.width = canvas.width;
-      screenshotCanvas.height = canvas.height;
-
-      // Copy the WebGL canvas content
-      ctx.drawImage(canvas, 0, 0);
-      
-      const dataUrl = screenshotCanvas.toDataURL('image/png');
-      
-      return {
-        dataUrl,
-        filename: `${activeScreen.toLowerCase()}_analysis_${Date.now()}.png`,
-        timestamp: Date.now(),
-        section: activeScreen
-      };
-    } catch (error) {
-      console.error('❌ Alternative screenshot method failed:', error);
-      return null;
-    }
-  }, [activeScreen]);
-
-  // 🆕 NEW: Current section data indicator
   const currentSectionData = useMemo(() => {
     const sectionKey = activeScreen === "Slag Line" ? "slagLine" : activeScreen.toLowerCase();
     return currentGunningData?.[sectionKey];
   }, [activeScreen, currentGunningData]);
 
-  // ⚡ Memoized current file data
   const currentFileData = useMemo(() => {
     if (!selectedFile || !fileDataCache?.has(selectedFile.name)) return null;
     const data = fileDataCache.get(selectedFile.name);
@@ -271,47 +621,42 @@ const GunningScreen = ({
     return data;
   }, [selectedFile, fileDataCache]);
 
-  // ⚡ Points processing - separated from worn points calculation
   const { processedPoints, sectionCounts, allPointsWithSections } = useMemo(() => {
     if (!currentFileData?.points) {
       console.log("❌ No points available for processing");
-      return { processedPoints: [], sectionCounts: {}, allPointsWithSections: [] };
-    }
-
-    const startTime = performance.now();
-
-    // Aggressive sampling for performance
-    const sampledPoints = samplePoints(currentFileData.points, MAX_SAMPLE_POINTS);
-    console.log(`📊 Sampled ${sampledPoints.length} from ${currentFileData.points.length} points`);
-
-    // Batch process all points with sections
-    const pointsWithSections = new Array(sampledPoints.length);
-    for (let i = 0; i < sampledPoints.length; i++) {
-      pointsWithSections[i] = {
-        ...sampledPoints[i],
-        detectedSection: detectPointSectionEnhanced(sampledPoints[i], sampledPoints),
+      return { 
+        processedPoints: [], 
+        sectionCounts: {}, 
+        allPointsWithSections: []
       };
     }
 
-    // Filter points for current screen
+    const startTime = performance.now();
+    const sampledPoints = samplePoints(currentFileData.points, MAX_SAMPLE_POINTS);
+    console.log(`📊 Sampled ${sampledPoints.length} from ${currentFileData.points.length} points`);
+
+    const pointsWithSections = new Array(sampledPoints.length);
+    
+    for (let i = 0; i < sampledPoints.length; i++) {
+      const detectedSection = detectPointSectionEnhanced(sampledPoints[i], sampledPoints);
+      pointsWithSections[i] = {
+        ...sampledPoints[i],
+        detectedSection
+      };
+    }
+
     const filtered = [];
     const counts = { Bricks: 0, "Slag Line": 0, Screed: 0 };
 
     for (const point of pointsWithSections) {
       counts[point.detectedSection]++;
 
-      const furnaceMatch =
-        !selectedFurnace ||
-        !point.furnaceId ||
-        point.furnaceId === selectedFurnace.furnace_id;
-
+      const furnaceMatch = !selectedFurnace || !point.furnaceId || point.furnaceId === selectedFurnace.furnace_id;
       if (!furnaceMatch) continue;
 
       const sectionMatch = point.detectedSection === activeScreen;
-
       if (sectionMatch) {
-        const thicknessFilter =
-          processingState.visualizationMode !== "filtered" ||
+        const thicknessFilter = processingState.visualizationMode !== "filtered" || 
           (point.thickness != null && point.thickness <= parameters.wearThreshold);
 
         if (thicknessFilter) {
@@ -328,7 +673,7 @@ const GunningScreen = ({
     return {
       processedPoints: filtered,
       sectionCounts: counts,
-      allPointsWithSections: pointsWithSections,
+      allPointsWithSections: pointsWithSections
     };
   }, [
     currentFileData,
@@ -338,12 +683,8 @@ const GunningScreen = ({
     parameters.wearThreshold,
   ]);
 
-  // ⚡ FIXED: Combined worn points and repair proposal calculation
   const { wornPoints, repairProposal } = useMemo(() => {
     console.log(`🔄 RECALCULATING WORN POINTS AND REPAIR PROPOSAL for ${activeScreen}`);
-    console.log(
-      `🎯 Parameters: Threshold=${parameters.wearThreshold}cm, MinArea=${parameters.minimumAreaSize}, Distance=${parameters.distanceBetweenAreas}m, Material=${parameters.repairMaterial}`
-    );
 
     if (!allPointsWithSections || !allPointsWithSections.length) {
       console.log("❌ No points available for calculation");
@@ -357,22 +698,12 @@ const GunningScreen = ({
       };
     }
 
-    // Calculate worn points using CURRENT parameters and activeScreen
     const worn = [];
 
     for (const point of allPointsWithSections) {
-      const furnaceMatch =
-        !selectedFurnace ||
-        !point.furnaceId ||
-        point.furnaceId === selectedFurnace.furnace_id;
-
+      const furnaceMatch = !selectedFurnace || !point.furnaceId || point.furnaceId === selectedFurnace.furnace_id;
       const sectionMatch = point.detectedSection === activeScreen;
-
-      // ✅ Ensure thickness is valid and within threshold
-      const isWorn =
-        point.thickness != null &&
-        !isNaN(point.thickness) &&
-        point.thickness <= parameters.wearThreshold;
+      const isWorn = point.thickness != null && !isNaN(point.thickness) && point.thickness <= parameters.wearThreshold;
 
       if (furnaceMatch && sectionMatch && isWorn) {
         worn.push(point);
@@ -380,13 +711,9 @@ const GunningScreen = ({
     }
 
     const finalWornPoints = worn.slice(0, MAX_WORN_POINTS);
-    console.log(
-      `🚨 WORN POINTS for ${activeScreen} (≤${parameters.wearThreshold}cm): ${finalWornPoints.length}`
-    );
+    console.log(`🚨 WORN POINTS for ${activeScreen}: ${finalWornPoints.length}`);
 
-    // ⚡ Calculate repair proposal using the just-calculated worn points
     if (!finalWornPoints.length) {
-      console.log("❌ No worn points available for repair proposal");
       return {
         wornPoints: finalWornPoints,
         repairProposal: {
@@ -397,37 +724,25 @@ const GunningScreen = ({
       };
     }
 
-    // Limit processing for performance
+    // Repair proposal calculation
     const processPoints = finalWornPoints.slice(0, 3000);
-    console.log(`📊 Processing ${processPoints.length} worn points for repair calculation`);
-
     const areas = [];
     const processedIndices = new Set();
-    const maxDistance = parameters.distanceBetweenAreas * 1000; // Convert to mm
+    const maxDistance = parameters.distanceBetweenAreas * 1000;
 
-    // Group points by proximity based on current parameters
     for (let i = 0; i < processPoints.length; i++) {
       if (processedIndices.has(i)) continue;
 
       const area = { points: [processPoints[i]] };
       processedIndices.add(i);
 
-      const pos1 = processPoints[i].position || [
-        processPoints[i].x || 0,
-        processPoints[i].y || 0,
-        processPoints[i].z || 0,
-      ];
+      const pos1 = processPoints[i].position || [processPoints[i].x || 0, processPoints[i].y || 0, processPoints[i].z || 0];
 
-      // Search for nearby points within distance threshold
       const searchLimit = Math.min(i + 500, processPoints.length);
       for (let j = i + 1; j < searchLimit; j++) {
         if (processedIndices.has(j)) continue;
 
-        const pos2 = processPoints[j].position || [
-          processPoints[j].x || 0,
-          processPoints[j].y || 0,
-          processPoints[j].z || 0,
-        ];
+        const pos2 = processPoints[j].position || [processPoints[j].x || 0, processPoints[j].y || 0, processPoints[j].z || 0];
 
         const distance = Math.sqrt(
           (pos1[0] - pos2[0]) ** 2 +
@@ -441,39 +756,22 @@ const GunningScreen = ({
         }
       }
 
-      // Only include areas that meet the current minimum size requirement
       if (area.points.length >= parameters.minimumAreaSize) {
         areas.push(area);
-        console.log(
-          `✅ ACCEPTED Area ${areas.length}: ${area.points.length} points (≥ ${parameters.minimumAreaSize} required)`
-        );
-      } else {
-        console.log(
-          `❌ REJECTED Area: ${area.points.length} points (< ${parameters.minimumAreaSize} required)`
-        );
       }
     }
 
-    console.log(`📊 === AREA GROUPING RESULTS ===`);
-    console.log(`Total qualifying areas: ${areas.length}`);
-
-    // Calculate repair requirements for each area using current parameters
     const processedAreas = areas.map((area, index) => {
-      // Calculate wear depth based on current threshold
-      const wearDepths = area.points.map((p) =>
-        Math.max(0, parameters.wearThreshold - (p.thickness || 0))
-      );
+      const wearDepths = area.points.map((p) => Math.max(0, parameters.wearThreshold - (p.thickness || 0)));
       const avgWearDepth = wearDepths.reduce((sum, depth) => sum + depth, 0) / wearDepths.length;
 
-      const pointDensity = 1000; // points per m²
-      const areaSize = Math.max(0.001, area.points.length / pointDensity); // m²
+      const pointDensity = 1000;
+      const areaSize = Math.max(0.001, area.points.length / pointDensity);
+      const volume = areaSize * (avgWearDepth / 100);
+      const weight = volume * MATERIAL_DENSITY * 1000;
+      const cost = weight * 2.5;
 
-      // Volume calculation based on current wear threshold
-      const volume = areaSize * (avgWearDepth / 100); // m³ (convert cm to m)
-      const weight = volume * MATERIAL_DENSITY * 1000; // kg
-      const cost = weight * 2.5; // $2.5 per kg
-
-      const result = {
+      return {
         id: index + 1,
         volume: Math.max(0.001, volume),
         weight: Math.max(0.1, weight),
@@ -483,17 +781,6 @@ const GunningScreen = ({
         areaSize: areaSize,
         material: parameters.repairMaterial,
       };
-
-      console.log(`🔧 Area ${result.id} calculation:`, {
-        points: result.pointCount,
-        avgWear: `${result.avgWear.toFixed(2)}cm`,
-        volume: `${result.volume.toFixed(3)}m³`,
-        weight: `${result.weight.toFixed(1)}kg`,
-        cost: `${result.cost.toFixed(0)}`,
-        material: result.material,
-      });
-
-      return result;
     });
 
     const totalVolume = processedAreas.reduce((sum, area) => sum + area.volume, 0);
@@ -509,21 +796,10 @@ const GunningScreen = ({
         material: parameters.repairMaterial,
       },
       parameters: {
-        wearThreshold: parameters.wearThreshold,
-        distanceBetweenAreas: parameters.distanceBetweenAreas,
-        minimumAreaSize: parameters.minimumAreaSize,
-        repairMaterial: parameters.repairMaterial,
+        ...parameters,
         timestamp: Date.now(),
       },
     };
-
-    console.log("🎯 === FINAL REPAIR PROPOSAL ===");
-    console.log(`Total Areas: ${proposal.areas.length}`);
-    console.log(`Total Volume: ${proposal.total.volume.toFixed(3)}m³`);
-    console.log(`Total Weight: ${proposal.total.weight.toFixed(1)}kg`);
-    console.log(`Total Cost: ${proposal.total.cost.toFixed(0)}`);
-    console.log(`Material: ${proposal.total.material}`);
-    console.log("=======================================");
 
     return {
       wornPoints: finalWornPoints,
@@ -533,13 +809,503 @@ const GunningScreen = ({
     allPointsWithSections,
     selectedFurnace,
     activeScreen,
-    parameters.wearThreshold,
-    parameters.distanceBetweenAreas,
-    parameters.minimumAreaSize,
-    parameters.repairMaterial,
+    parameters
   ]);
 
-  // ⚡ Enhanced parameter change handler with immediate feedback
+  // 🔧 Simple 2D furnace visualization without section divisions - like old code
+
+// Update the drawing function to pass allPoints to mapPointTo2D
+// 🔧 PROFESSIONAL: Clean, realistic furnace visualization matching LidarVisualizer quality
+// 🔧 PROFESSIONAL: Clean, realistic furnace visualization matching LidarVisualizer quality
+const draw2DFurnaceLayout = useCallback((canvas, isProposal = false) => {
+  if (!canvas) {
+    console.warn("❌ Canvas not available for drawing");
+    return;
+  }
+
+  console.log(`🎨 Drawing professional 2D furnace - Active: ${activeScreen}, Proposal: ${isProposal}`);
+
+  const ctx = canvas.getContext("2d");
+  const rect = canvas.getBoundingClientRect();
+  
+  // Set canvas size with high DPI support like LidarVisualizer
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+
+  const width = rect.width;
+  const height = rect.height;
+  
+  // Clean black background for maximum contrast
+  ctx.fillStyle = "#000000"; // Pure black background
+  ctx.fillRect(0, 0, width, height);
+
+  const margin = 25; // Professional spacing
+  const furnaceWidth = width - (margin * 2);
+  const furnaceHeight = height - (margin * 2);
+
+  // Check if data is available
+  if (!allPointsWithSections || allPointsWithSections.length === 0) {
+    // Clean loading state
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No furnace data available", width / 2, height / 2);
+    ctx.fillStyle = "#CCCCCC";
+    ctx.font = "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.fillText(`Loading ${activeScreen} analysis...`, width / 2, height / 2 + 25);
+    return;
+  }
+
+  // 🔧 HIGH-DENSITY: More points for realistic density
+  const maxPoints = Math.min(30000, allPointsWithSections.length);
+  const sampledPoints = samplePoints(allPointsWithSections, maxPoints);
+  
+  console.log(`🎨 Rendering ${sampledPoints.length} tiny points for ${activeScreen}`);
+
+  // 🔧 SECTION-SPECIFIC FILTERING: Only show points relevant to active screen + zoom in
+  const filteredPoints = [];
+  const activeScreenPoints = [];
+  const otherSectionPoints = [];
+
+  sampledPoints.forEach((point) => {
+    const mapped2D = mapPointTo2D(point, width, height, activeScreen, allPointsWithSections);
+    
+    // Skip points outside visible area
+    if (mapped2D.x < margin || mapped2D.x > width - margin || 
+        mapped2D.y < margin || mapped2D.y > height - margin) {
+      return;
+    }
+    
+    const thickness = point.thickness || 0;
+    const threshold = parameters.wearThreshold;
+    const isWorn = thickness > 0 && thickness <= threshold;
+    
+    // 🔧 FIXED: Use the enhanced section detection for headerless CSV
+    const pointSection = point.detectedSection || detectPointSectionEnhanced(point, allPointsWithSections);
+    const isActiveScreenPoint = pointSection === activeScreen;
+    
+    const pointData = { 
+      ...mapped2D, 
+      thickness, 
+      isWorn, 
+      isActiveScreenPoint, 
+      pointSection 
+    };
+    
+    if (isActiveScreenPoint) {
+      activeScreenPoints.push(pointData);
+    } else {
+      otherSectionPoints.push(pointData);
+    }
+  });
+
+  // 🔧 ZOOM CALCULATION: Calculate bounds for active screen points only
+  let zoomBounds = null;
+  if (activeScreenPoints.length > 0) {
+    let minX = activeScreenPoints[0].x;
+    let maxX = activeScreenPoints[0].x;
+    let minY = activeScreenPoints[0].y;
+    let maxY = activeScreenPoints[0].y;
+    
+    activeScreenPoints.forEach(point => {
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
+    });
+    
+    // Add padding around the bounds
+    const paddingX = (maxX - minX) * 0.2; // 20% padding
+    const paddingY = (maxY - minY) * 0.2;
+    
+    zoomBounds = {
+      minX: Math.max(margin, minX - paddingX),
+      maxX: Math.min(width - margin, maxX + paddingX),
+      minY: Math.max(margin, minY - paddingY),
+      maxY: Math.min(height - margin, maxY + paddingY),
+      width: maxX - minX + (paddingX * 2),
+      height: maxY - minY + (paddingY * 2)
+    };
+  }
+
+  // 🔧 ZOOM TRANSFORMATION: Apply zoom to focus on active section
+  const applyZoomToPoint = (point) => {
+    if (!zoomBounds) return point;
+    
+    // Scale factor to zoom into the section
+    const scaleX = furnaceWidth / Math.max(zoomBounds.width, 100); // Minimum width to prevent over-zoom
+    const scaleY = furnaceHeight / Math.max(zoomBounds.height, 100);
+    const scale = Math.min(scaleX, scaleY, 3.0); // Maximum 3x zoom
+    
+    // Center the zoomed area
+    const centerX = margin + furnaceWidth / 2;
+    const centerY = margin + furnaceHeight / 2;
+    const boundsCenterX = zoomBounds.minX + zoomBounds.width / 2;
+    const boundsCenterY = zoomBounds.minY + zoomBounds.height / 2;
+    
+    return {
+      ...point,
+      x: centerX + (point.x - boundsCenterX) * scale,
+      y: centerY + (point.y - boundsCenterY) * scale
+    };
+  };
+
+  // Apply zoom transformation to all points
+  const zoomedActivePoints = activeScreenPoints.map(applyZoomToPoint);
+  const zoomedOtherPoints = otherSectionPoints.map(applyZoomToPoint);
+
+  // Filter out points that are now outside the visible area after zoom
+  const visibleActivePoints = zoomedActivePoints.filter(point => 
+    point.x >= margin && point.x <= width - margin && 
+    point.y >= margin && point.y <= height - margin
+  );
+  
+  const visibleOtherPoints = zoomedOtherPoints.filter(point => 
+    point.x >= margin && point.x <= width - margin && 
+    point.y >= margin && point.y <= height - margin
+  );
+
+  // 🔧 CATEGORIZE ACTIVE SECTION POINTS: Only the active screen points get detailed categorization
+  const pointCategories = {
+    background: visibleOtherPoints, // All other sections - minimal visibility
+    healthy: [],    // Active section healthy - bright green
+    worn: [],       // Active section worn - red
+    critical: []    // Severely worn - bright red
+  };
+
+  // Categorize only the active screen points for detailed visualization
+  visibleActivePoints.forEach((point) => {
+    if (point.isWorn) {
+      // Further categorize worn points by severity
+      if (point.thickness > 0 && point.thickness <= parameters.wearThreshold * 0.5) {
+        pointCategories.critical.push(point); // Very worn
+      } else {
+        pointCategories.worn.push(point); // Moderately worn
+      }
+    } else {
+      pointCategories.healthy.push(point);
+    }
+  });
+
+  console.log(`🎯 ZOOMED VIEW (headerless CSV): ${activeScreen} - Active: ${visibleActivePoints.length}, Other: ${visibleOtherPoints.length}`);
+
+  // 🔧 SIMPLE OUTLINE: Draw furnace outline
+  ctx.strokeStyle = "#333333";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(margin, margin, furnaceWidth, furnaceHeight);
+
+  // 🔧 ZOOM INDICATOR: Draw zoom bounds outline
+  if (zoomBounds && zoomBounds.width > 50 && zoomBounds.height > 50) {
+    ctx.strokeStyle = SCREEN_CONFIGS[activeScreen].color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.5;
+    ctx.strokeRect(margin, margin, furnaceWidth, furnaceHeight);
+    ctx.globalAlpha = 1.0;
+  }
+
+  // 🔧 SECTION-FOCUSED RENDERING: Render with section-specific zoom and colors
+  
+  // 1. Background sections (other furnace parts) - very faint gray
+  if (pointCategories.background.length > 0) {
+    ctx.fillStyle = "#404040"; // Dark gray
+    ctx.globalAlpha = 0.05; // Very faint - almost invisible
+    pointCategories.background.forEach((point) => {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 0.2, 0, 2 * Math.PI); // Ultra tiny
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+  }
+
+  // 2. Active section healthy areas - BRIGHT GREEN for selected section
+  if (pointCategories.healthy.length > 0) {
+    ctx.fillStyle = isProposal ? "#666666" : "#00FF00"; // Bright green for active section
+    ctx.globalAlpha = isProposal ? 0.6 : 1.0; // Full opacity for analysis view
+    pointCategories.healthy.forEach((point) => {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 0.8, 0, 2 * Math.PI); // Larger points for active section
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+  }
+
+  // 3. Active section worn areas - BRIGHT RED for selected section
+  if (pointCategories.worn.length > 0) {
+    ctx.fillStyle = "#FF3333"; // Bright red for worn areas
+    ctx.globalAlpha = 1.0;
+    pointCategories.worn.forEach((point) => {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 1.0, 0, 2 * Math.PI); // Larger for visibility
+      ctx.fill();
+    });
+  }
+
+  // 4. Active section critical areas - PURE RED, most prominent
+  if (pointCategories.critical.length > 0) {
+    ctx.fillStyle = "#FF0000"; // Pure red for critical areas
+    ctx.globalAlpha = 1.0;
+    pointCategories.critical.forEach((point) => {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 1.2, 0, 2 * Math.PI); // Largest for critical areas
+      ctx.fill();
+      
+      // Add subtle glow for critical areas in active section
+      if (!isProposal) {
+        ctx.fillStyle = "#FF6666";
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 2.0, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = "#FF0000"; // Reset color
+        ctx.globalAlpha = 1.0;
+      }
+    });
+  }
+
+  // 🔧 CLEAN LABELING: Professional typography with high contrast
+  
+  // Professional font
+  const fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  
+  // Title - bright white on black with zoom indicator
+  ctx.fillStyle = "#FFFFFF"; // Pure white
+  ctx.font = `bold 13px ${fontFamily}`;
+  ctx.textAlign = "center";
+  const title = `${activeScreen.toUpperCase()} ${isProposal ? "REPAIR ANALYSIS" : "CONDITION ASSESSMENT"} - ZOOMED VIEW`;
+  ctx.fillText(title, width / 2, margin - 30);
+
+  // View type indicator - bright yellow with zoom info
+  ctx.fillStyle = "#FFFF00"; // Bright yellow
+  ctx.font = `11px ${fontFamily}`;
+  let viewType = "";
+  if (activeScreen === "Screed") {
+    viewType = "TOP VIEW - FOCUSED ON SCREED SECTION";
+  } else if (activeScreen === "Bricks") {
+    viewType = "CROSS SECTION - FOCUSED ON BRICK SECTION";
+  } else {
+    viewType = "UPPER VIEW - FOCUSED ON SLAG LINE SECTION";
+  }
+  ctx.fillText(`${viewType}`, width / 2, margin - 15);
+
+  // Section color indicator
+  ctx.fillStyle = SCREEN_CONFIGS[activeScreen].color;
+  ctx.font = `10px ${fontFamily}`;
+  ctx.fillText(`● ${activeScreen.toUpperCase()} SECTION HIGHLIGHTED ●`, width / 2, margin - 5);
+
+  // Panel numbering - light gray
+  ctx.fillStyle = "#CCCCCC";
+  ctx.font = `9px ${fontFamily}`;
+  ctx.textAlign = "center";
+  const panelWidth = furnaceWidth / FURNACE_2D_CONFIG.panels.count;
+  
+  for (let i = 0; i < FURNACE_2D_CONFIG.panels.count; i++) {
+    const x = margin + (i * panelWidth) + (panelWidth / 2);
+    ctx.fillText(`P${i + 1}`, x, margin - 5);
+  }
+
+  // 🔧 SECTION-FOCUSED STATISTICS: Statistics for the active section only
+  const totalActivePoints = pointCategories.healthy.length + 
+                           pointCategories.worn.length + 
+                           pointCategories.critical.length;
+  const wornCount = pointCategories.worn.length + pointCategories.critical.length;
+  const otherSectionsCount = pointCategories.background.length;
+  
+  // Left side: Active section status - prominent display
+  ctx.font = `11px ${fontFamily}`;
+  ctx.textAlign = "left";
+  
+  if (wornCount > 0) {
+    // Wear status for active section
+    ctx.fillStyle = "#FF4444";
+    ctx.fillText(`⚠ ${activeScreen}: ${wornCount} worn areas detected`, margin, height - margin + 15);
+    
+    // Percentage for active section
+    const wearPercentage = totalActivePoints > 0 ? 
+      ((wornCount / totalActivePoints) * 100).toFixed(1) : "0.0";
+    ctx.fillStyle = "#FF8800";
+    ctx.fillText(`${wearPercentage}% of ${activeScreen} section affected`, margin, height - margin + 28);
+    
+    // Critical areas in active section
+    if (pointCategories.critical.length > 0) {
+      ctx.fillStyle = "#FF0000";
+      ctx.fillText(`${pointCategories.critical.length} critical ${activeScreen} areas`, margin, height - margin + 41);
+    }
+  } else {
+    ctx.fillStyle = "#00FF00"; // Bright green
+    ctx.fillText(`✓ ${activeScreen} section healthy`, margin, height - margin + 15);
+    ctx.fillStyle = "#CCCCCC";
+    ctx.fillText(`${totalActivePoints} points analyzed in ${activeScreen}`, margin, height - margin + 28);
+  }
+
+  // Show other sections count
+  ctx.fillStyle = "#808080";
+  ctx.font = `9px ${fontFamily}`;
+  ctx.fillText(`${otherSectionsCount} points in other sections (dimmed)`, margin, height - margin + 54);
+
+  // Right side: Technical details - white text
+  ctx.font = `9px ${fontFamily}`;
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(
+    `${totalActivePoints} ${activeScreen} points analyzed`,
+    width - margin,
+    height - margin + 15
+  );
+  ctx.fillText(
+    `${parameters.wearThreshold}cm threshold`,
+    width - margin,
+    height - margin + 28
+  );
+  
+  // Zoom level indicator
+  ctx.fillStyle = SCREEN_CONFIGS[activeScreen].color;
+  ctx.fillText(
+    `ZOOMED: ${activeScreen} SECTION`,
+    width - margin,
+    height - margin + 41
+  );
+
+  // 🔧 COORDINATE INDICATORS: Clean compass/height markers
+  ctx.fillStyle = "#AAAAAA"; // Light gray
+  ctx.font = `8px ${fontFamily}`;
+  
+  if (activeScreen === "Screed") {
+    // Compass for top view
+    ctx.textAlign = "center";
+    ctx.fillText("N", width / 2, margin + 12);
+    ctx.fillText("S", width / 2, height - margin - 5);
+    
+    ctx.save();
+    ctx.translate(margin + 12, height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("W", 0, 0);
+    ctx.restore();
+    
+    ctx.save();
+    ctx.translate(width - margin - 12, height / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillText("E", 0, 0);
+    ctx.restore();
+  } else {
+    // Height markers for cross-section
+    ctx.textAlign = "right";
+    ctx.fillText("TOP", margin - 8, margin + 15);
+    ctx.fillText("BOTTOM", margin - 8, height - margin - 10);
+    
+    ctx.textAlign = "center";
+    ctx.fillText("CENTER", width / 2, height - margin - 25);
+    ctx.fillText("WALL", width - margin - 25, height - margin - 25);
+  }
+
+  // 🔧 SECTION-SPECIFIC LEGEND: Focused legend for active section
+  const legendX = width - margin - 110;
+  const legendY = margin + 20;
+  
+  // Legend background with section color accent
+  ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+  ctx.fillRect(legendX - 5, legendY - 15, 105, 70);
+  
+  // Section color accent border
+  ctx.strokeStyle = SCREEN_CONFIGS[activeScreen].color;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(legendX - 5, legendY - 15, 105, 70);
+  
+  // Legend title with section name
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = `bold 9px ${fontFamily}`;
+  ctx.textAlign = "left";
+  ctx.fillText(`${activeScreen.toUpperCase()} LEGEND`, legendX, legendY);
+
+  ctx.font = `8px ${fontFamily}`;
+  
+  // Healthy indicator for active section
+  ctx.fillStyle = isProposal ? "#666666" : "#00FF00";
+  ctx.beginPath();
+  ctx.arc(legendX + 5, legendY + 12, 2, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(`${activeScreen} Healthy`, legendX + 12, legendY + 15);
+
+  // Worn indicator for active section
+  ctx.fillStyle = "#FF3333";
+  ctx.beginPath();
+  ctx.arc(legendX + 5, legendY + 25, 2, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(`${activeScreen} Worn`, legendX + 12, legendY + 28);
+
+  // Critical indicator for active section
+  ctx.fillStyle = "#FF0000";
+  ctx.beginPath();
+  ctx.arc(legendX + 5, legendY + 38, 2.5, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(`${activeScreen} Critical`, legendX + 12, legendY + 41);
+
+  // Other sections indicator
+  ctx.fillStyle = "#404040";
+  ctx.beginPath();
+  ctx.arc(legendX + 5, legendY + 51, 1, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.fillStyle = "#AAAAAA";
+  ctx.fillText("Other Sections", legendX + 12, legendY + 54);
+
+}, [activeScreen, parameters.wearThreshold, allPointsWithSections]);
+
+
+  // Update canvases when data changes
+  useEffect(() => {
+    if (canvasRef.current) {
+      console.log("🎨 Updating main furnace canvas");
+      draw2DFurnaceLayout(canvasRef.current, false);
+    }
+  }, [draw2DFurnaceLayout, allPointsWithSections, processedPoints]);
+
+  useEffect(() => {
+    if (proposalCanvasRef.current) {
+      console.log("🎨 Updating proposal furnace canvas");
+      draw2DFurnaceLayout(proposalCanvasRef.current, true);
+    }
+  }, [draw2DFurnaceLayout, wornPoints]);
+
+  // Add resize handler
+  useEffect(() => {
+    const handleResize = () => {
+      setTimeout(() => {
+        if (canvasRef.current) draw2DFurnaceLayout(canvasRef.current, false);
+        if (proposalCanvasRef.current) draw2DFurnaceLayout(proposalCanvasRef.current, true);
+      }, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [draw2DFurnaceLayout]);
+
+  // Helper functions
+  const captureCurrentScreenshot = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      console.warn('❌ Canvas not available for screenshot');
+      return null;
+    }
+
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      console.log('✅ Screenshot captured successfully');
+      return {
+        dataUrl,
+        filename: `${activeScreen.toLowerCase()}_furnace_analysis_${Date.now()}.png`,
+        timestamp: Date.now(),
+        section: activeScreen
+      };
+    } catch (error) {
+      console.error('❌ Screenshot capture failed:', error);
+      return null;
+    }
+  }, [activeScreen]);
+
   const handleParameterChange = useCallback((param, value) => {
     console.log(`🔧 Parameter changing: ${param} = ${value}`);
     setParameters((prev) => {
@@ -549,11 +1315,9 @@ const GunningScreen = ({
     });
   }, []);
 
-  // 🔧 FIXED: Enhanced accept button handler with improved screenshot handling
   const handleAcceptParameters = useCallback(() => {
     console.log("✅ Parameters accepted and applied:", parameters);
 
-    // Prepare data for parent component
     const sectionKey = activeScreen === "Slag Line" ? "slagLine" : activeScreen.toLowerCase();
     const captureData = {
       section: activeScreen,
@@ -569,56 +1333,25 @@ const GunningScreen = ({
       }
     };
 
-    // 🔧 FIXED: Enhanced screenshot capture with validation
     let screenshot = null;
-    
-    // Force render before screenshot
-    if (rendererRef.current && cameraRef.current && sceneRef.current) {
-      console.log('🎨 Forcing render before data save screenshot...');
-      rendererRef.current.render(sceneRef.current, cameraRef.current);
-    }
-    
     if (onCaptureScreenshot && canvasRef.current) {
       screenshot = onCaptureScreenshot(canvasRef, `${activeScreen.toLowerCase()}_analysis`);
     } else {
       screenshot = captureCurrentScreenshot();
     }
 
-    // Validate screenshot
-    if (screenshot && screenshot.dataUrl) {
-      console.log('📸 Screenshot captured for data save');
-    } else {
-      console.warn('⚠️ Screenshot capture failed during data save');
-    }
-
-    // Send data to parent
     if (onDataUpdate) {
       onDataUpdate(sectionKey, captureData, screenshot);
       console.log(`📊 Data sent to parent for ${activeScreen}:`, sectionKey);
     }
 
-    // Enhanced feedback message
-    const message = `✅ Parameters Applied & Data Captured!\n\n` +
-      `New Settings Active:\n` +
-      `• Wear Threshold: ${parameters.wearThreshold}cm\n` +
-      `• Distance Between Areas: ${parameters.distanceBetweenAreas}m\n` +
-      `• Minimum Area Size: ${parameters.minimumAreaSize} points\n` +
-      `• Repair Material: ${parameters.repairMaterial}\n\n` +
-      `📊 Analysis Results:\n` +
-      `• Section: ${activeScreen}\n` +
-      `• Repair Areas: ${repairProposal.areas.length}\n` +
-      `• Worn Points: ${wornPoints.length}\n` +
-      `• Total Cost: $${repairProposal.total?.cost?.toFixed(0) || 0}\n\n` +
-      `${screenshot ? '📸 Screenshot captured!' : '⚠️ Screenshot capture failed'}\n` +
-      `🔄 Data ready for gunning report generation!`;
-
-    alert(message);
+    alert(`✅ Parameters Applied & Data Captured for ${activeScreen}!`);
   }, [
-    parameters, 
-    activeScreen, 
-    repairProposal, 
-    wornPoints, 
-    processedPoints, 
+    parameters,
+    activeScreen,
+    repairProposal,
+    wornPoints,
+    processedPoints,
     sectionCounts,
     selectedFile,
     selectedFurnace,
@@ -627,9 +1360,7 @@ const GunningScreen = ({
     captureCurrentScreenshot
   ]);
 
-  // 🆕 NEW: Screen switch with auto-save
   const handleScreenSwitchWithAutoSave = useCallback((newScreen) => {
-    // Auto-save current screen data before switching (optional)
     if (repairProposal.areas.length > 0 && onDataUpdate) {
       const sectionKey = activeScreen === "Slag Line" ? "slagLine" : activeScreen.toLowerCase();
       const autoSaveData = {
@@ -666,7 +1397,6 @@ const GunningScreen = ({
     captureCurrentScreenshot
   ]);
 
-  // 🆕 NEW: Enhanced screen buttons with data indicators
   const screenSwitchButtons = useMemo(() => 
     Object.keys(SCREEN_CONFIGS).map((screen) => (
       <button
@@ -686,7 +1416,6 @@ const GunningScreen = ({
         disabled={isUiDisabled}
       >
         {screen}
-        {/* 🆕 NEW: Data indicator dot */}
         {currentGunningData?.[screen === "Slag Line" ? "slagLine" : screen.toLowerCase()] && (
           <div style={{
             position: 'absolute',
@@ -700,7 +1429,7 @@ const GunningScreen = ({
           }} />
         )}
       </button>
-    )), 
+    )),
     [activeScreen, isUiDisabled, handleScreenSwitchWithAutoSave, currentGunningData]
   );
 
@@ -717,362 +1446,6 @@ const GunningScreen = ({
       visualizationMode: prev.visualizationMode === "all" ? "filtered" : "all",
     }));
   }, []);
-
-  // 🔧 FIXED: Enhanced scene initialization with preserveDrawingBuffer
-  const initializeScene = useCallback((canvasRef, sceneRef, cameraRef, rendererRef, bgColor = 0x000000) => {
-    if (!canvasRef.current) return null;
-
-    const canvas = canvasRef.current;
-    const scene = sceneRef.current;
-    scene.background = new THREE.Color(bgColor);
-
-    const container = canvas.parentElement;
-    const { clientWidth: width, clientHeight: height } = container;
-
-    // Optimized camera setup
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.set(0, 20, 50);
-    camera.lookAt(0, 0, 0);
-    cameraRef.current = camera;
-
-    // 🔧 FIXED: Renderer setup with preserveDrawingBuffer for screenshots
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: false,
-      powerPreference: "high-performance",
-      alpha: false,
-      preserveDrawingBuffer: true, // 🔧 FIX: Essential for screenshots!
-    });
-    renderer.setSize(width, height);
-    renderer.setClearColor(bgColor);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    rendererRef.current = renderer;
-
-    // Optimized lighting
-    scene.add(new THREE.AmbientLight(0x404040, 0.6));
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(1, 1, 1);
-    scene.add(directionalLight);
-
-    // Throttled resize handler
-    let resizeTimeout;
-    const handleResize = () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        const { clientWidth: newWidth, clientHeight: newHeight } = container;
-        camera.aspect = newWidth / newHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(newWidth, newHeight);
-      }, 16); // ~60fps throttling
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      clearTimeout(resizeTimeout);
-    };
-  }, []);
-
-  // ⚡ FIXED: Point cloud creation with correct color logic
-  const createPointCloud = useCallback(
-    async (points, scene, camera) => {
-      // Efficient cleanup
-      const objectsToRemove = [];
-      scene.traverse((child) => {
-        if (child.type === "Points" || child.type === "Line") {
-          objectsToRemove.push(child);
-        }
-      });
-
-      objectsToRemove.forEach((child) => {
-        scene.remove(child);
-        child.geometry?.dispose();
-        child.material?.dispose();
-      });
-
-      if (!points.length) return;
-
-      setProcessingState((prev) => ({ ...prev, isProcessing: true }));
-
-      try {
-        // Aggressive point reduction for rendering
-        const renderPoints = samplePoints(points, MAX_RENDER_POINTS);
-        console.log(`🎨 Rendering ${renderPoints.length} points for ${activeScreen}`);
-
-        // Pre-allocate arrays for better performance
-        const positions = new Float32Array(renderPoints.length * 3);
-        const colors = new Float32Array(renderPoints.length * 3);
-        let validPointCount = 0;
-
-        // Batch process positions and colors
-        for (let i = 0; i < renderPoints.length; i++) {
-          const point = renderPoints[i];
-          const pos = point.position || [point.x || 0, point.y || 0, point.z || 0];
-
-          if (pos.length < 3 || pos.some(isNaN)) continue;
-
-          const index = validPointCount * 3;
-          positions[index] = pos[0];
-          positions[index + 1] = pos[1];
-          positions[index + 2] = pos[2];
-
-          // 🔧 FIXED: Correct color logic - check thickness properly
-          const pointThickness = point.thickness || 0;
-          const threshold = parameters.wearThreshold || 20;
-          
-          if (pointThickness > 0 && pointThickness <= threshold) {
-            // 🔴 Red for worn/damaged points (thickness <= threshold)
-            colors[index] = 1.0;     // R
-            colors[index + 1] = 0.0; // G  
-            colors[index + 2] = 0.0; // B
-          } else {
-            // 🔘 Grey for healthy furnace structure (thickness > threshold)
-            colors[index] = 0.6;     // R
-            colors[index + 1] = 0.6; // G
-            colors[index + 2] = 0.6; // B
-          }
-          validPointCount++;
-        }
-
-        if (validPointCount === 0) return;
-
-        // Create optimized geometry
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute("position", new THREE.BufferAttribute(positions.slice(0, validPointCount * 3), 3));
-        geometry.setAttribute("color", new THREE.BufferAttribute(colors.slice(0, validPointCount * 3), 3));
-
-        const pointSize = Math.max(2.0, Math.min(8.0, 3000 / Math.sqrt(validPointCount)));
-        const material = new THREE.PointsMaterial({
-          size: pointSize,
-          vertexColors: true,
-          transparent: true,
-          opacity: 0.9,
-          sizeAttenuation: false,
-        });
-
-        const pointCloud = new THREE.Points(geometry, material);
-        scene.add(pointCloud);
-
-        // Optimized camera positioning
-        const box = new THREE.Box3().setFromObject(pointCloud);
-        if (!box.isEmpty()) {
-          const center = box.getCenter(new THREE.Vector3());
-          const size = box.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          const cameraDistance = Math.max(maxDim * 1.2, 30);
-
-          camera.position.set(
-            center.x + cameraDistance * 0.5,
-            center.y + cameraDistance * 0.3,
-            center.z + cameraDistance * 0.8
-          );
-          camera.lookAt(center);
-          camera.updateProjectionMatrix();
-        }
-      } finally {
-        setProcessingState((prev) => ({ ...prev, isProcessing: false }));
-      }
-    },
-    [activeScreen, parameters.wearThreshold]
-  );
-
-  // 🎨 ENHANCED: Optimized repair areas visualization with improved color scheme
-  const createRepairAreasVisualization = useCallback(
-    async (scene, camera) => {
-      // Efficient cleanup
-      const objectsToRemove = [];
-      scene.traverse((child) => {
-        if (child.type === "Points" || child.type === "Line") {
-          objectsToRemove.push(child);
-        }
-      });
-
-      objectsToRemove.forEach((child) => {
-        scene.remove(child);
-        child.geometry?.dispose();
-        child.material?.dispose();
-      });
-
-      if (!currentFileData?.points?.length) return;
-
-      setProcessingState((prev) => ({ ...prev, isProcessing: true }));
-
-      try {
-        // Use already processed points to avoid recomputation
-        const sectionPoints = processedPoints;
-
-        if (sectionPoints.length > 0) {
-          // 🎨 ENHANCED: Background geometry in darker grey
-          const bgPositions = new Float32Array(sectionPoints.length * 3);
-          const bgColors = new Float32Array(sectionPoints.length * 3);
-          let bgCount = 0;
-
-          for (const point of sectionPoints) {
-            const pos = point.position || [point.x || 0, point.y || 0, point.z || 0];
-            if (pos.length < 3 || pos.some(isNaN)) continue;
-
-            const index = bgCount * 3;
-            bgPositions[index] = pos[0];
-            bgPositions[index + 1] = pos[1];
-            bgPositions[index + 2] = pos[2];
-            
-            // 🎨 ENHANCED: Darker grey for background furnace structure
-            bgColors[index] = 0.4;   // R
-            bgColors[index + 1] = 0.4; // G
-            bgColors[index + 2] = 0.4; // B
-            bgCount++;
-          }
-
-          if (bgCount > 0) {
-            const backgroundGeometry = new THREE.BufferGeometry();
-            backgroundGeometry.setAttribute(
-              "position",
-              new THREE.BufferAttribute(bgPositions.slice(0, bgCount * 3), 3)
-            );
-            backgroundGeometry.setAttribute(
-              "color",
-              new THREE.BufferAttribute(bgColors.slice(0, bgCount * 3), 3)
-            );
-
-            const backgroundMaterial = new THREE.PointsMaterial({
-              size: Math.max(1.5, Math.min(6.0, 2000 / Math.sqrt(bgCount))),
-              vertexColors: true,
-              opacity: 0.3, // 🎨 ENHANCED: More transparent background
-              transparent: true,
-              sizeAttenuation: false,
-            });
-
-            scene.add(new THREE.Points(backgroundGeometry, backgroundMaterial));
-          }
-        }
-
-        // 🎨 ENHANCED: Bright red damaged points overlay for maximum contrast
-        if (wornPoints.length > 0) {
-          const dmgPositions = new Float32Array(wornPoints.length * 3);
-          const dmgColors = new Float32Array(wornPoints.length * 3);
-          let dmgCount = 0;
-
-          for (const point of wornPoints) {
-            const pos = point.position || [point.x || 0, point.y || 0, point.z || 0];
-            if (pos.length < 3 || pos.some(isNaN)) continue;
-
-            const index = dmgCount * 3;
-            dmgPositions[index] = pos[0];
-            dmgPositions[index + 1] = pos[1];
-            dmgPositions[index + 2] = pos[2];
-
-            // 🎨 ENHANCED: Bright red for all repair points regardless of section
-            dmgColors[index] = 1.0;   // R - Bright red
-            dmgColors[index + 1] = 0.0; // G
-            dmgColors[index + 2] = 0.0; // B
-            dmgCount++;
-          }
-
-          if (dmgCount > 0) {
-            const damagedGeometry = new THREE.BufferGeometry();
-            damagedGeometry.setAttribute(
-              "position",
-              new THREE.BufferAttribute(dmgPositions.slice(0, dmgCount * 3), 3)
-            );
-            damagedGeometry.setAttribute(
-              "color",
-              new THREE.BufferAttribute(dmgColors.slice(0, dmgCount * 3), 3)
-            );
-
-            const damagedMaterial = new THREE.PointsMaterial({
-              size: Math.max(4.0, Math.min(12.0, 4000 / Math.sqrt(dmgCount))), // 🎨 ENHANCED: Larger size for visibility
-              vertexColors: true,
-              transparent: true,
-              opacity: 1.0, // 🎨 ENHANCED: Full opacity for maximum visibility
-              sizeAttenuation: false,
-            });
-
-            scene.add(new THREE.Points(damagedGeometry, damagedMaterial));
-          }
-        }
-
-        // Optimized camera positioning
-        const box = new THREE.Box3().setFromObject(scene);
-        if (!box.isEmpty()) {
-          const center = box.getCenter(new THREE.Vector3());
-          const size = box.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          const cameraDistance = Math.max(maxDim * 1.1, 25);
-
-          const cameraOffsets = {
-            Bricks: { x: 0.4, y: 0.4, z: 0.8 },
-            "Slag Line": { x: 0.8, y: 0.1, z: 0.5 },
-            Screed: { x: 0.2, y: 0.9, z: 0.3 },
-          };
-
-          const offset = cameraOffsets[activeScreen] || { x: 0.5, y: 0.3, z: 0.8 };
-
-          camera.position.set(
-            center.x + cameraDistance * offset.x,
-            center.y + cameraDistance * offset.y,
-            center.z + cameraDistance * offset.z
-          );
-          camera.lookAt(center);
-          camera.updateProjectionMatrix();
-        }
-      } finally {
-        setProcessingState((prev) => ({ ...prev, isProcessing: false }));
-      }
-    },
-    [processedPoints, wornPoints, activeScreen, currentFileData]
-  );
-
-  // ⚡ Animation loop setup
-  useEffect(() => {
-    const cleanup1 = initializeScene(canvasRef, sceneRef, cameraRef, rendererRef);
-    const cleanup2 = initializeScene(proposalCanvasRef, proposalSceneRef, proposalCameraRef, proposalRendererRef, 0x222222);
-
-    let lastTime = 0;
-    const animate = (currentTime) => {
-      animationFrameRef.current = requestAnimationFrame(animate);
-
-      // Throttle to ~60fps
-      if (currentTime - lastTime >= 16) {
-        if (rendererRef.current && cameraRef.current) {
-          rendererRef.current.render(sceneRef.current, cameraRef.current);
-        }
-
-        if (proposalRendererRef.current && proposalCameraRef.current) {
-          proposalRendererRef.current.render(proposalSceneRef.current, proposalCameraRef.current);
-        }
-        lastTime = currentTime;
-      }
-    };
-
-    if (rendererRef.current || proposalRendererRef.current) {
-      animate(0);
-    }
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      rendererRef.current?.dispose();
-      proposalRendererRef.current?.dispose();
-      cleanup1?.();
-      cleanup2?.();
-    };
-  }, [initializeScene]);
-
-  // ⚡ Update visualizations when data changes
-  useEffect(() => {
-    if (currentFileData && processedPoints.length) {
-      createPointCloud(processedPoints, sceneRef.current, cameraRef.current);
-    } else {
-      setProcessingState((prev) => ({ ...prev, showNoDataDialog: true }));
-    }
-  }, [currentFileData, processedPoints, createPointCloud]);
-
-  useEffect(() => {
-    if (currentFileData) {
-      createRepairAreasVisualization(proposalSceneRef.current, proposalCameraRef.current);
-    }
-  }, [currentFileData, createRepairAreasVisualization]);
 
   const currentConfig = SCREEN_CONFIGS[activeScreen];
 
@@ -1097,7 +1470,7 @@ const GunningScreen = ({
           padding: "10px",
         }}
       >
-        {/* 🔧 FIXED: Enhanced Header with dynamic repair counts per section */}
+        {/* Header */}
         <div
           style={{
             backgroundColor: "#333",
@@ -1123,7 +1496,6 @@ const GunningScreen = ({
               Areas: {repairProposal.areas.length}
               {processingState.isProcessing && <span style={{ color: "#ffaa00" }}> | Processing...</span>}
             </div>
-            {/* 🆕 NEW: Data status indicator */}
             {currentSectionData && (
               <div style={{
                 display: "flex",
@@ -1162,19 +1534,19 @@ const GunningScreen = ({
           <strong>{currentConfig.title}</strong> - {currentConfig.description}
         </div>
 
-        {/* 🔄 UPDATED: Larger Visualization panels for better furnace view */}
+        {/* 2D Furnace Layout Panels */}
         <div style={{ display: "flex", gap: "10px", minHeight: "500px" }}>
-          {/* Main visualization - Enhanced size */}
+          {/* Main 2D Furnace Analysis View */}
           <div
             style={{
               flex: 1,
-              backgroundColor: "#000",
+              backgroundColor: "#1a1a1a",
               border: `2px solid ${currentConfig.color}`,
               borderRadius: "8px",
               position: "relative",
               overflow: "hidden",
-              minHeight: "500px", // 🔧 FIX: Minimum height for better view
-              height: "60vh",     // 🔧 FIX: Responsive height
+              minHeight: "500px",
+              height: "60vh",
             }}
           >
             <div
@@ -1183,15 +1555,16 @@ const GunningScreen = ({
                 top: 0,
                 left: 0,
                 right: 0,
-                backgroundColor: "rgba(0,0,0,0.8)",
+                backgroundColor: "rgba(0,0,0,0.9)",
                 color: "white",
                 padding: "8px 16px",
                 fontSize: "14px",
                 fontWeight: "bold",
                 zIndex: 1000,
+                borderBottom: "1px solid #444"
               }}
             >
-              {currentConfig.title}
+              🏭 2D FURNACE LAYOUT - {currentConfig.title}
             </div>
 
             <div
@@ -1225,38 +1598,80 @@ const GunningScreen = ({
                 position: "absolute",
                 top: "85px",
                 left: "10px",
-                backgroundColor: "rgba(0,0,0,0.7)",
+                backgroundColor: "rgba(0,0,0,0.8)",
                 color: wornPoints.length > 0 ? "#FF4444" : "#10B981",
                 padding: "4px 8px",
                 borderRadius: "4px",
                 fontSize: "10px",
                 zIndex: 1000,
+                border: "1px solid rgba(255,255,255,0.2)"
               }}
             >
-              {/* 🔧 FIXED: Dynamic repair count display */}
               {wornPoints.length > 0 ? 
                 `${wornPoints.length} points need repair (${activeScreen})` : 
                 `No repairs needed (${activeScreen})`}
             </div>
 
-            <canvas ref={canvasRef} style={{ 
-              width: "100%", 
-              height: "100%",
-              minHeight: "500px" // 🔧 FIX: Ensure canvas maintains minimum size
-            }} />
+            {/* Updated Legend with viewing angle info */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: "40px",
+                left: "10px",
+                backgroundColor: "rgba(0,0,0,0.9)",
+                color: "white",
+                padding: "8px 12px",
+                borderRadius: "4px",
+                fontSize: "10px",
+                zIndex: 1000,
+                maxWidth: "220px",
+                border: "1px solid rgba(255,255,255,0.2)"
+              }}
+            >
+              <div style={{ fontWeight: "bold", marginBottom: "6px" }}>
+                🎨 {activeScreen} View:
+              </div>
+              <div style={{ fontSize: "9px", color: "#FFFF00", marginBottom: "4px" }}>
+                {activeScreen === "Screed" ? "👁️ Top View (Bird's Eye)" : 
+                 activeScreen === "Bricks" ? "👁️ Side View (Circumferential)" : 
+                 "👁️ Angled View (Upper Section)"}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "2px" }}>
+                <div style={{ width: "8px", height: "8px", backgroundColor: "#00FF00", borderRadius: "50%" }}></div>
+                <span>{activeScreen} (Healthy)</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "2px" }}>
+                <div style={{ width: "8px", height: "8px", backgroundColor: "#FF0000", borderRadius: "50%" }}></div>
+                <span>{activeScreen} (Worn)</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <div style={{ width: "8px", height: "8px", backgroundColor: "#808080", borderRadius: "50%" }}></div>
+                <span>Other Sections</span>
+              </div>
+            </div>
+
+            <canvas 
+              ref={canvasRef} 
+              style={{ 
+                width: "100%", 
+                height: "100%",
+                minHeight: "500px",
+                cursor: "crosshair"
+              }} 
+            />
           </div>
 
-          {/* Proposal visualization - Enhanced size */}
+          {/* 2D Repair Proposal View */}
           <div
             style={{
               flex: 1,
-              backgroundColor: "#000",
+              backgroundColor: "#1a1a1a",
               border: "2px solid #FF6600",
               borderRadius: "8px",
               position: "relative",
               overflow: "hidden",
-              minHeight: "500px", // 🔧 FIX: Minimum height for better view
-              height: "60vh",     // 🔧 FIX: Responsive height
+              minHeight: "500px",
+              height: "60vh",
             }}
           >
             <div
@@ -1265,15 +1680,16 @@ const GunningScreen = ({
                 top: 0,
                 left: 0,
                 right: 0,
-                backgroundColor: "rgba(0,0,0,0.8)",
+                backgroundColor: "rgba(255,102,0,0.9)",
                 color: "white",
                 padding: "8px 16px",
                 fontSize: "14px",
                 fontWeight: "bold",
                 zIndex: 1000,
+                borderBottom: "1px solid #FF6600"
               }}
             >
-              GUNITE REPAIR PROPOSAL
+              🔧 2D GUNITE REPAIR PROPOSAL
             </div>
 
             <div
@@ -1281,31 +1697,35 @@ const GunningScreen = ({
                 position: "absolute",
                 top: "85px",
                 left: "10px",
-                backgroundColor: "rgba(0,0,0,0.7)",
-                color: repairProposal.areas.length > 0 ? "#FF4444" : "#666",
+                backgroundColor: "rgba(0,0,0,0.8)",
+                color: repairProposal.areas.length > 0 ? "#FF4444" : "#10B981",
                 padding: "4px 8px",
                 borderRadius: "4px",
                 fontSize: "10px",
                 zIndex: 1000,
+                border: "1px solid rgba(255,255,255,0.2)"
               }}
             >
-              {/* 🔧 FIXED: Dynamic repair area count with section info */}
               {repairProposal.areas.length > 0 ? 
                 `${repairProposal.areas.length} Repair Area(s) - ${activeScreen}` : 
                 `No Repairs Needed - ${activeScreen}`}
             </div>
 
-            <canvas ref={proposalCanvasRef} style={{ 
-              width: "100%", 
-              height: "100%",
-              minHeight: "500px" // 🔧 FIX: Ensure canvas maintains minimum size
-            }} />
+            <canvas 
+              ref={proposalCanvasRef} 
+              style={{ 
+                width: "100%", 
+                height: "100%",
+                minHeight: "500px",
+                cursor: "crosshair"
+              }} 
+            />
           </div>
         </div>
 
         {/* Control panels */}
         <div style={{ display: "flex", gap: "10px", marginBottom: "100px" }}>
-          {/* 🔄 UPDATED: Settings panel with data preview and quick actions */}
+          {/* Settings panel */}
           <div
             style={{
               flex: 1,
@@ -1329,7 +1749,6 @@ const GunningScreen = ({
               {activeScreen.toUpperCase()} ANALYSIS SETTINGS
             </h3>
 
-            {/* 🆕 NEW: Current section data preview */}
             {currentSectionData && (
               <div style={{
                 marginBottom: "15px",
@@ -1545,7 +1964,7 @@ const GunningScreen = ({
               </div>
             </div>
 
-            {/* Quick preset buttons */}
+            {/* Quick presets */}
             <div style={{ marginBottom: "15px" }}>
               <label
                 style={{
@@ -1628,7 +2047,7 @@ const GunningScreen = ({
               </div>
             </div>
 
-            {/* 🔄 UPDATED: Accept button with enhanced styling */}
+            {/* Save/Update button */}
             <button
               style={{
                 backgroundColor: currentSectionData ? "#10b981" : "#666",
@@ -1652,7 +2071,7 @@ const GunningScreen = ({
               {currentSectionData && <span style={{ fontSize: "10px" }}>✓</span>}
             </button>
 
-            {/* 🆕 NEW: Quick actions buttons */}
+            {/* Action buttons */}
             <div style={{ display: "flex", gap: "5px", marginTop: "10px" }}>
               <button
                 style={{
@@ -1673,31 +2092,15 @@ const GunningScreen = ({
                 disabled={isUiDisabled}
                 onClick={() => {
                   console.log('🔧 Manual screenshot capture triggered');
-                  
-                  // Force render before capture
-                  if (rendererRef.current && cameraRef.current && sceneRef.current) {
-                    rendererRef.current.render(sceneRef.current, cameraRef.current);
-                  }
-                  
                   const screenshot = captureCurrentScreenshot();
                   if (screenshot) {
-                    // Test if screenshot has actual content
-                    const img = new Image();
-                    img.onload = () => {
-                      console.log(`✅ Screenshot validated: ${img.width}x${img.height}`);
-                      const a = document.createElement('a');
-                      a.href = screenshot.dataUrl;
-                      a.download = screenshot.filename;
-                      a.click();
-                      alert(`📸 Screenshot saved: ${screenshot.filename}`);
-                    };
-                    img.onerror = () => {
-                      console.error('❌ Screenshot validation failed');
-                      alert('❌ Screenshot capture failed - please try again');
-                    };
-                    img.src = screenshot.dataUrl;
+                    const a = document.createElement('a');
+                    a.href = screenshot.dataUrl;
+                    a.download = screenshot.filename;
+                    a.click();
+                    alert(`📸 Screenshot saved: ${screenshot.filename}`);
                   } else {
-                    alert('❌ Screenshot capture failed - WebGL context issue');
+                    alert('❌ Screenshot capture failed - please try again');
                   }
                 }}
               >
@@ -1782,7 +2185,22 @@ const GunningScreen = ({
               <strong>Current Threshold:</strong> {parameters.wearThreshold}cm
             </div>
 
-            {/* Repair proposal display */}
+            <div style={{ 
+              fontSize: "11px", 
+              marginBottom: "15px", 
+              color: "#666",
+              backgroundColor: "#f8f9fa",
+              padding: "8px",
+              borderRadius: "4px",
+              border: "1px solid #dee2e6"
+            }}>
+              <div style={{ fontWeight: "bold", marginBottom: "4px" }}>🏭 3D to 2D Projection:</div>
+              <div>• <strong>Bricks/Slag Line:</strong> Side view (circumferential angle)</div>
+              <div>• <strong>Screed:</strong> Top-down view (bird's eye perspective)</div>
+              <div>• Zoomed focus on selected furnace section</div>
+              <div>• Current view: <strong>{activeScreen}</strong> - {currentConfig.furnaceDescription}</div>
+            </div>
+
             <div
               style={{
                 borderTop: "1px solid #999",
@@ -1793,7 +2211,6 @@ const GunningScreen = ({
                 border: "1px solid #ccc",
               }}
             >
-              {/* Debug info panel */}
               <div
                 style={{
                   fontSize: "10px",
@@ -1805,7 +2222,7 @@ const GunningScreen = ({
                   border: "1px solid #e9ecef",
                 }}
               >
-                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>Debug Info:</div>
+                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>🔍 LiDAR Furnace Analysis:</div>
                 <div>• Total Points: {currentFileData?.points?.length || 0}</div>
                 <div>• Section Points: {processedPoints.length}</div>
                 <div>• Worn Points: {wornPoints.length} (≤ {parameters.wearThreshold}cm)</div>
@@ -1814,8 +2231,7 @@ const GunningScreen = ({
                   • Distribution: B:{sectionCounts.Bricks || 0} S:{sectionCounts["Slag Line"] || 0} C:
                   {sectionCounts.Screed || 0}
                 </div>
-                <div>• Using Threshold: {repairProposal.parameters?.wearThreshold || parameters.wearThreshold}cm</div>
-                <div>• Min Area Size: {repairProposal.parameters?.minimumAreaSize || parameters.minimumAreaSize}</div>
+                <div>• Current Analysis: {activeScreen} ({currentConfig.furnaceDescription})</div>
               </div>
 
               {repairProposal.areas.length > 0 ? (
@@ -1894,7 +2310,6 @@ const GunningScreen = ({
                     </div>
                   ))}
 
-                  {/* Summary */}
                   <div
                     style={{
                       marginTop: "15px",
@@ -1968,22 +2383,27 @@ const GunningScreen = ({
                   {wornPoints.length > 0 ? (
                     <div>
                       <div style={{ fontWeight: "bold", marginBottom: "8px", color: "#d32f2f" }}>
-                        ⚠️ {wornPoints.length} worn points found
+                        ⚠️ {wornPoints.length} worn points found in {activeScreen} section
                       </div>
                       <div style={{ fontSize: "11px" }}>
                         No areas meet the minimum size requirement of {parameters.minimumAreaSize} points.
                       </div>
                       <div style={{ fontSize: "10px", marginTop: "8px", color: "#666" }}>
                         💡 Try reducing the minimum area size or distance between areas.
+                        <br />
+                        🏭 Check the 2D furnace layout for damage distribution.
                       </div>
                     </div>
                   ) : (
                     <div>
                       <div style={{ fontWeight: "bold", marginBottom: "8px", color: "#666" }}>
-                        ✅ No repairs needed
+                        ✅ No repairs needed in {activeScreen} section
                       </div>
                       <div style={{ fontSize: "11px" }}>
                         All areas are above the {parameters.wearThreshold}cm threshold.
+                      </div>
+                      <div style={{ fontSize: "10px", marginTop: "4px", color: "#666" }}>
+                        🏭 2D furnace layout shows healthy condition in this section.
                       </div>
                     </div>
                   )}
@@ -1994,7 +2414,7 @@ const GunningScreen = ({
         </div>
       </div>
 
-      {/* No data dialog */}
+      {/* No Data Dialog */}
       {processingState.showNoDataDialog && (
         <div
           style={{
@@ -2038,7 +2458,7 @@ const GunningScreen = ({
                 paddingBottom: "10px",
               }}
             >
-              <h3 style={{ margin: 0, color: "#1a202c" }}>No Data Available</h3>
+              <h3 style={{ margin: 0, color: "#1a202c" }}>🏭 No 2D Furnace Data Available</h3>
               <button
                 onClick={() => setProcessingState((prev) => ({ ...prev, showNoDataDialog: false }))}
                 style={{
@@ -2050,21 +2470,42 @@ const GunningScreen = ({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  fontSize: "18px"
                 }}
               >
                 ✕
               </button>
             </div>
             <div style={{ color: "#dc3545", textAlign: "center", padding: "20px" }}>
-              No points are available for the selected screen "{activeScreen}".
-              <br />
-              This could be caused by:
-              <ul style={{ textAlign: "left", marginTop: "10px" }}>
-                <li>Missing or mismatched section data in the CSV file</li>
-                <li>No points match the current furnace selection</li>
-                <li>Thickness data may not align with the wear threshold</li>
-              </ul>
-              Please check the file "{selectedFile?.name || ""}" or adjust the settings.
+              <div style={{ fontSize: "16px", marginBottom: "15px" }}>
+                No points are available for the selected "{activeScreen}" section in the 2D furnace layout.
+              </div>
+              <div style={{ textAlign: "left", fontSize: "14px" }}>
+                This could be caused by:
+                <ul style={{ marginTop: "10px", marginBottom: "15px" }}>
+                  <li>Missing or mismatched section data in the CSV file</li>
+                  <li>No points match the current furnace selection</li>
+                  <li>Z-coordinate thresholds don't match your furnace geometry</li>
+                  <li>Points are outside the expected coordinate ranges for this section</li>
+                </ul>
+                
+                <div style={{ 
+                  backgroundColor: "#f8f9fa", 
+                  padding: "10px", 
+                  borderRadius: "4px", 
+                  border: "1px solid #dee2e6",
+                  marginTop: "15px"
+                }}>
+                  <strong>💡 Troubleshooting Tips:</strong>
+                  <ul style={{ marginTop: "8px", fontSize: "13px" }}>
+                    <li>Check if your data contains proper Z-coordinates (height values)</li>
+                    <li>Verify the file "{selectedFile?.name || "unknown"}" has the expected furnace geometry</li>
+                    <li>Try switching to a different section to verify data availability</li>
+                    <li>Check browser console for detailed section detection logs</li>
+                    <li>Ensure thickness values are properly formatted in the CSV</li>
+                  </ul>
+                </div>
+              </div>
             </div>
             <div
               style={{
